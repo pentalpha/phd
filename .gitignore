@@ -2,3 +2,5 @@ databases/*
 .fuse_hidden*
 input/*
 *.pyc
+.snakemake/*
+esm/*

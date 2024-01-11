@@ -2,6 +2,13 @@ quickgo_gaf = "databases/QuickGO-annotations-20240111.gaf"
 quickgo_parsed = "databases/goa_parsed.tsv.gz"
 uniprot_fasta = "databases/uniprot_sprot.fasta.gz"
 proteins_for_learning = "input/proteins.fasta"
+extract_esm_script = "esm/scripts/extract.py"
+
+rule download_esm:
+    output:
+        extract_esm_script
+    shell:
+        "rm -rf esm & git clone git@github.com:facebookresearch/esm.git"
 
 rule parse_quickgo:
     input:
@@ -26,3 +33,12 @@ rule annotated_protein_list:
         proteins_for_learning
     shell:
         "python create_train_protein_set.py"
+
+rule create_features:
+    input:
+        proteins_for_learning,
+        extract_esm_script
+    output:
+        'input/features/esm.npy'
+    shell:
+        "conda run --live-stream -n plm python calc_features.py "+proteins_for_learning+" input/features"
