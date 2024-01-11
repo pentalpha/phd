@@ -1,5 +1,7 @@
 import gzip
 
+from util import filter_fasta, run_command
+
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
@@ -40,15 +42,21 @@ if __name__ == '__main__':
     print(ann_dropped, 'of', anns, 'dropped')
         
     print(len(protein_ann), 'GOs with annotation')
-    frequent = [(goid,protids) for goid, protids in protein_ann.items() if len(protids) >= 20]
+    frequent = [(goid,protids) for goid, protids in protein_ann.items() if len(protids) >= 10]
     print(len(frequent), 'frequent GOs')
     frequent_prots = set()
     for goid, protids in frequent:
         frequent_prots.update(protids)
-    frequent_prots = list(frequent_prots)
+    print(len(frequent_prots), 'frequent proteins')
+    run_command(['mkdir', 'input'])
+    proteins_for_learning_fasta = "input/proteins.fasta"
+    filter_fasta(swiss_prot_fasta, frequent_prots, proteins_for_learning_fasta,
+        id_pos = 1)
+
+    '''frequent_prots = list(frequent_prots)
     frequent_prots.sort()
     print(len(frequent_prots), 'frequent proteins')
     output_path = 'databases/uniprot_ids'
     output = open(output_path+'.txt', 'w')
     for protid in frequent_prots:
-            output.write(protid+'\n')
+            output.write(protid+'\n')'''

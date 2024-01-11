@@ -1,2 +1,4 @@
 databases/*
 .fuse_hidden*
+input/*
+*.pyc

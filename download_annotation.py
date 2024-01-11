@@ -2,41 +2,15 @@ import gzip
 from os import path, mkdir
 import subprocess
 import pandas as pd
+
+from util import open_file, write_file
 #manual urls:
 #quickgo:
 #https://www.ebi.ac.uk/QuickGO/annotations?aspect=molecular_function&evidenceCode=ECO:0000352,ECO:0000269,ECO:0000314,ECO:0000315,ECO:0000316,ECO:0000353,ECO:0000270,ECO:0007005,ECO:0007001,ECO:0007003,ECO:0007007,ECO:0006056,ECO:0000318,ECO:0000320,ECO:0000321,ECO:0000304,ECO:0000305&evidenceCodeUsage=descendants&withFrom=UniProtKB
 #geneontology.org
 #http://current.geneontology.org/annotations/filtered_goa_uniprot_all_noiea.gaf.gz
 
-def run_command(cmd_vec, stdin="", no_output=True):
-    '''Executa um comando no shell e retorna a saída (stdout) dele.'''
-    cmd_vec = " ".join(cmd_vec)
-    #logging.info(cmd_vec)
-    if no_output:
-        #print(cmd_vec)
-        result = subprocess.run(cmd_vec, shell=True)
-        return result.returncode
-    else:
-        result = subprocess.run(cmd_vec, capture_output=True, 
-            text=True, input=stdin, shell=True)
-        return result.stdout
 
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
-def open_file(input_path: str):
-    if input_path.endswith('.gz'):
-        return gzip.open(input_path, 'rt')
-    else:
-        return open(input_path, 'r')
-    
-def write_file(input_path: str):
-    if input_path.endswith('.gz'):
-        return gzip.open(input_path, 'wt')
-    else:
-        return open(input_path, 'w')
     
 if __name__ == '__main__':
     dbs_dir = 'databases'
@@ -57,7 +31,7 @@ if __name__ == '__main__':
         for line in goa_gaf:
             if line.startswith('UniProtKB'):
                 cells = line.rstrip('\n').split('\t')
-                if len(cells) < 12:
+                if len(cells) < 13:
                     break
                 if cells[8] == 'F':
                     protid = cells[1]
