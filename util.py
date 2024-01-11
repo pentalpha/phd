@@ -1,6 +1,12 @@
 import gzip
 import subprocess
+import yaml
 
+config = yaml.safe_load(open("config.yml", "r"))
+goa_parsed = 'databases/goa_parsed.tsv.gz'
+input_annotation_path = 'input/annotation.tsv'
+taxon_features = 'input/features/taxon_one_hot.npy'
+taxon_features_ids = 'input/features/taxon_one_hot_ids.txt'
 
 def run_command(cmd_vec, stdin="", no_output=True):
     '''Executa um comando no shell e retorna a saída (stdout) dele.'''
@@ -32,27 +38,17 @@ def write_file(input_path: str):
     else:
         return open(input_path, 'w')
     
-def filter_fasta(fasta_path, allowed_ids, output_path, id_pos = 0):
-    keep = []
+def load_parsed_goa(file_path=goa_parsed):
+    anns = []
+    for rawline in open_file(file_path):
+        protid, goid, evi, taxid = rawline.rstrip('\n').split('\t')
+        if goid.startswith('GO') and taxid.startswith('tax'):
+            anns.append([protid, goid, evi, taxid])
 
-    last_title = None
-    current_seq = ''
-    for rawline in open_file(fasta_path):
-        if rawline.startswith('>'):
-            if last_title:
-                keep.append((last_title, current_seq))
-                current_seq = ""
-            title_parts = rawline.rstrip('\n').split('|')
-            current_id = title_parts[id_pos]
-            if current_id in allowed_ids:
-                last_title = current_id
-            else:
-                last_title = None
-        else:
-            if last_title:
-                current_seq += rawline.rstrip('\n')
-    
-    output = write_file(output_path)
-    for name, seq in keep:
-        output.write('>'+name+'\n')
-        output.write(seq+'\n')
+    return anns
+
+def write_parsed_goa(annotations, file_path):
+    output = write_file(file_path)
+    for cells in annotations:
+        line = '\t'.join(cells)
+        output.write(line+'\n')

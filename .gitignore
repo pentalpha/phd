@@ -4,3 +4,5 @@ input/*
 *.pyc
 .snakemake/*
 esm/*
+esm
+up.sh
