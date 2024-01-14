@@ -17,12 +17,17 @@ from esm import ESM_Embedder
 def calc_fairesm(fasta_input, output_dir):
     embedder = ESM_Embedder()
     uniprot_ids, _ = ids_from_fasta(fasta_input)
+    feature_dfs = []
     for emb_len in config['esm_models_to_use']:
         print('Calculating ESM', emb_len, 'embeddings')
         features_path = fairesm_features.replace('*', str(emb_len)+'.npy')
         embedder.calc_embeddings(fasta_input, emb_len)
         embedder.export_embeddings(emb_len, uniprot_ids, features_path)
-        open(features_path.replace('.npy', '_ids.txt'), 'w').write('\n'.join(uniprot_ids))
+        features_ids_path = features_path.replace('.npy', '_ids.txt')
+        open(features_ids_path, 'w').write('\n'.join(uniprot_ids))
+        feature_dfs.append((features_ids_path, features_path))
+    
+    return feature_dfs
 
 def calc_taxon_features(output_dir):
     annotations = load_parsed_goa(input_annotation_path)
@@ -44,6 +49,8 @@ def calc_taxon_features(output_dir):
     print(one_hot)
     np.save(open(taxon_features, 'wb'), one_hot)
     open(taxon_features_ids, 'w').write('\n'.join(taxids))
+
+    return taxon_features_ids, taxon_features
     
 if __name__ == '__main__':
     fasta_input = sys.argv[1]

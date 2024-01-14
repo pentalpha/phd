@@ -22,7 +22,7 @@ rule parse_quickgo:
     output:
         quickgo_parsed
     shell:
-        "python download_annotation.py"
+        "python src/download_annotation.py"
 
 rule download_uniprot:
     output:
@@ -38,7 +38,7 @@ rule annotated_protein_list:
         proteins_for_learning,
         input_annotation_path
     shell:
-        "python create_train_protein_set.py"
+        "python src/create_train_protein_set.py"
 
 rule create_features:
     input:
@@ -48,4 +48,4 @@ rule create_features:
         taxon_features,
         esm_features
     shell:
-        "conda run --live-stream -n plm python calc_features.py "+proteins_for_learning+" input/features"
+        "conda run --live-stream -n plm python src/calc_features.py "+proteins_for_learning+" input/features"
