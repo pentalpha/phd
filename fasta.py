@@ -26,6 +26,31 @@ def filter_fasta(fasta_path, allowed_ids, output_path, id_pos = 0):
         output.write('>'+name+'\n')
         output.write(seq+'\n')
 
+def remove_from_fasta(fasta_path, to_remove, output_path, id_pos = 0):
+    keep = []
+
+    last_title = None
+    current_seq = ''
+    for rawline in open_file(fasta_path):
+        if rawline.startswith('>'):
+            if last_title:
+                keep.append((last_title, current_seq))
+                current_seq = ""
+            title_parts = rawline.lstrip('>').rstrip('\n').split('|')
+            current_id = title_parts[id_pos]
+            if not current_id in to_remove:
+                last_title = current_id
+            else:
+                last_title = None
+        else:
+            if last_title:
+                current_seq += rawline.rstrip('\n')
+    
+    output = write_file(output_path)
+    for name, seq in keep:
+        output.write('>'+name+'\n')
+        output.write(seq+'\n')
+
 def ids_from_fasta(fasta_path):
     ids = []
     taxons = []

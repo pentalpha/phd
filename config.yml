@@ -1,2 +1,5 @@
 min_annotations: 30
 max_taxons: 128
+esm_libraries: /storages/macaiba/pitagoras/vol/data/esm_embedding
+esm_processes: 18
+esm_models_to_use: [33]

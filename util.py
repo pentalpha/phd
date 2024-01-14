@@ -7,6 +7,7 @@ goa_parsed = 'databases/goa_parsed.tsv.gz'
 input_annotation_path = 'input/annotation.tsv'
 taxon_features = 'input/features/taxon_one_hot.npy'
 taxon_features_ids = 'input/features/taxon_one_hot_ids.txt'
+fairesm_features = 'input/features/fairesm_*'
 
 def run_command(cmd_vec, stdin="", no_output=True):
     '''Executa um comando no shell e retorna a saída (stdout) dele.'''
