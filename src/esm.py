@@ -3,6 +3,7 @@ from glob import glob
 import torch
 import numpy as np
 from multiprocessing import Pool
+from tqdm import tqdm
 
 from fasta import fasta_equal_split, remove_from_fasta
 from util import config, run_command
@@ -71,13 +72,15 @@ class ESM_Embedder():
             return np.nan
     
     def get_embeddings(self, emb_len: int, uniprotids: list, as_np=False):
-        embs_list = [self.load_embedding(emb_len, ID) for ID in uniprotids]
+        print('Loading', emb_len, 'embeddings for', len(uniprotids), 'proteins')
+        embs_list = [self.load_embedding(emb_len, ID) for ID in tqdm(uniprotids)]
         if as_np:
             embs_list = np.asarray(embs_list)
         return embs_list
     
     def export_embeddings(self, emb_len: int, uniprotids: list, output_path: str):
         embs_np_obj = self.get_embeddings(emb_len, uniprotids, as_np=True)
+        print('saving embeddings for', len(uniprotids), 'proteins')
         np.save(open(output_path, 'wb'), embs_np_obj)
 
     def calc_embeddings(self, input_fasta: str, emb_len: int):
@@ -86,7 +89,11 @@ class ESM_Embedder():
             print('Some embeddings have already been calculated')
             print('Removing them from the input fasta')
             to_process_fasta = self.esm_dir+'/to_calc_'+str(emb_len)+'.fasta'
-            remove_from_fasta(input_fasta, calculated_proteins, to_process_fasta)
+            kept = remove_from_fasta(input_fasta, calculated_proteins, to_process_fasta)
+            if len(kept) == 0:
+                run_command(['rm', to_process_fasta])
+                print('All proteins calculated')
+                return
             input_fasta = to_process_fasta
         
         fasta_parts = fasta_equal_split(input_fasta, self.processes)

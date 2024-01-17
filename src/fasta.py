@@ -51,6 +51,8 @@ def remove_from_fasta(fasta_path, to_remove, output_path, id_pos = 0):
         output.write('>'+name+'\n')
         output.write(seq+'\n')
 
+    return [n for n, seq in keep]
+
 def ids_from_fasta(fasta_path):
     ids = []
     taxons = []

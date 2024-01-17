@@ -1,10 +1,13 @@
 import gzip
 import subprocess
 import yaml
+import numpy as np
 
 config = yaml.safe_load(open("config.yml", "r"))
 goa_parsed = 'databases/goa_parsed.tsv.gz'
 input_annotation_path = 'input/annotation.tsv'
+input_features_path = 'input/features.npy'
+input_features_ids_path = 'input/ids.txt'
 taxon_features = 'input/features/taxon_one_hot.npy'
 taxon_features_ids = 'input/features/taxon_one_hot_ids.txt'
 fairesm_features = 'input/features/fairesm_*'
@@ -53,3 +56,9 @@ def write_parsed_goa(annotations, file_path):
     for cells in annotations:
         line = '\t'.join(cells)
         output.write(line+'\n')
+
+def concat_vecs(vecs: list):
+    vec = []
+    for v in vecs:
+        vec += v.tolist()
+    return np.array(vec)

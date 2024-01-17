@@ -8,7 +8,7 @@ proteins_for_learning = "input/proteins.fasta"
 input_annotation_path = 'input/annotation.tsv'
 taxon_features = 'input/features/taxon_one_hot.npy'
 esm_features = 'input/features/esm.npy'
-
+input_features_path = 'input/features.npy'
 rule download_esm:
     output:
         extract_esm_script
@@ -38,14 +38,13 @@ rule annotated_protein_list:
         proteins_for_learning,
         input_annotation_path
     shell:
-        "python src/create_train_protein_set.py"
+        "conda run --live-stream -n plm python src/create_train_protein_set.py"
 
 rule create_features:
     input:
         proteins_for_learning,
         extract_esm_script
     output:
-        taxon_features,
-        esm_features
+        input_features_path
     shell:
         "conda run --live-stream -n plm python src/calc_features.py "+proteins_for_learning+" input/features"

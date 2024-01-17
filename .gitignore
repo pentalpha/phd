@@ -6,3 +6,4 @@ input/*
 esm/*
 esm
 up.sh
+down_input.sh
