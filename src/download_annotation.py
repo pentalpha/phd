@@ -1,3 +1,4 @@
+from collections import Counter
 import gzip
 from os import path, mkdir
 import subprocess
@@ -5,8 +6,9 @@ import pandas as pd
 from tqdm import tqdm
 
 from gene_ontology import expand_go_set, gos_not_to_use, load_go_graph
-from util import (open_file, run_command, write_file, 
-                  quickgo_expanded_path, config, count_lines)
+from util import (load_parsed_goa, open_file, run_command, write_file, 
+    goa_parsed, goa_parsed_expanded, goa_parsed_frequent, 
+    config, count_lines, write_parsed_goa)
 
 #manual urls:
 #quickgo:
@@ -18,14 +20,11 @@ from util import (open_file, run_command, write_file,
     
 if __name__ == '__main__':
     dbs_dir = 'databases'
-    '''goa_url = "https://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/goa_uniprot_all.gaf.gz"
-    download_cmd = ['wget', goa_url]
-    goa_path = path.join(dbs_dir, goa_url.split('/')[-1])
-    if not path.exists(goa_path):
-        run_command(['mkdir', dbs_dir])
-        run_command(download_cmd)'''
+    if not path.exists(config['go_annotation_raw']):
+        download_cmd = ['wget', 'https://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/goa_uniprot_all.gaf.gz']
+        run_command(download_cmd)
+        run_command(['mv', 'goa_uniprot_all.gaf.gz', config['go_annotation_raw']])
 
-    #goa_gaf = open_file("databases/QuickGO-annotations-1697773507369-20231020.gaf")
     print('Counting length of ', config['go_annotation_raw'])
     count_ann_total_lines = count_lines(config['go_annotation_raw'])
     
@@ -78,8 +77,10 @@ if __name__ == '__main__':
     print(droped, 'with evi codes we cant use')
     print(incorrect_line_number, 'incorrect_line_number')
     print(quickgolines - other_dbs - other_ontos - droped - incorrect_line_number, len(parsed))
-    output_path = path.join(dbs_dir, 'goa_parsed.tsv.gz')
+    output_path = goa_parsed
     write_file(output_path).write('\n'.join(parsed))
+
+    parsed = open_file(goa_parsed).read().split('\n')
 
     print('Loading GO')
     goes_to_not_use = gos_not_to_use()
@@ -98,7 +99,22 @@ if __name__ == '__main__':
                 new_parsed.append('\t'.join([protid, goid2, evi, taxid]))
                 already_added.add((protid, goid2))
     
-    print(len(parsed), 'annotations from quickgo')
-    print(len(new_parsed), 'annotations with expnsion')
+    print(len(parsed), 'annotations from goa_uniprot_all')
+    print(len(new_parsed), 'annotations with expansion')
     run_command(['mkdir', 'input'])
-    write_file(quickgo_expanded_path).write('\n'.join(new_parsed))
+    write_file(goa_parsed_expanded).write('\n'.join(new_parsed))
+
+    #new_parsed = open_file(goa_parsed_expanded).read().split('\n')
+    all_annotations = load_parsed_goa(file_path=goa_parsed_expanded)
+    
+    all_goids = [goid for protid, goid, evi, taxid in all_annotations]
+    print(len(set(all_goids)), 'GO IDs from uniprot proteins in', goa_parsed_expanded)
+    go_counts = Counter(all_goids)
+    frequent_go_ids = set()
+    for goid, freq in go_counts.items():
+        if freq >= config['min_annotations']:
+            frequent_go_ids.add(goid)
+    print(len(frequent_go_ids), 'frequent GO IDs in', goa_parsed_expanded)
+
+    all_annotations = [x for x in all_annotations if x[1] in frequent_go_ids]
+    write_parsed_goa(all_annotations, goa_parsed_frequent)

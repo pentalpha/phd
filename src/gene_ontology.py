@@ -25,6 +25,6 @@ def expand_go_set(goid: str, go_graph: nx.MultiDiGraph, goes_to_not_use: set):
             if not parent in goes_to_not_use:
                 all_gos.add(parent)
     
-    all_gos.add(goid)
+        all_gos.add(goid)
     
     return sorted(all_gos)

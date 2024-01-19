@@ -3,7 +3,7 @@ import gzip
 from fasta import filter_fasta
 
 from util import (load_parsed_goa, run_command, config, write_parsed_goa,
-    input_annotation_path, quickgo_expanded_path)
+    input_annotation_path, goa_parsed_frequent)
 
 
 def chunks(lst, n):
@@ -22,28 +22,28 @@ def create_filtered_annotation_and_fasta(allowed_uniprot):
     protein_ann = {}
     ann_dropped = 0
     anns = 0
-    all_annotations = load_parsed_goa(file_path=quickgo_expanded_path)
+    all_annotations = load_parsed_goa(file_path=goa_parsed_frequent)
     all_proteins = set([protid for protid, goid, evi, taxid in all_annotations])
-    print(len(all_proteins), 'proteins in', quickgo_expanded_path)
+    print(len(all_proteins), 'proteins in', goa_parsed_frequent)
     all_goids = set([goid for protid, goid, evi, taxid in all_annotations])
-    print(len(all_goids), 'GO IDs in', quickgo_expanded_path)
+    print(len(all_goids), 'GO IDs in', goa_parsed_frequent)
 
     all_annotations = [x for x in all_annotations if x[0] in allowed_uniprot]
     all_proteins = set([protid for protid, goid, evi, taxid in all_annotations])
-    print(len(all_proteins), 'uniprot proteins in', quickgo_expanded_path)
+    print(len(all_proteins), 'uniprot proteins in', goa_parsed_frequent)
 
     goid_list = [goid for protid, goid, evi, taxid in all_annotations]
-    print(len(set(goid_list)), 'GO IDs from uniprot proteins in', quickgo_expanded_path)
+    print(len(set(goid_list)), 'GO IDs from uniprot proteins in', goa_parsed_frequent)
     go_counts = Counter(goid_list)
     frequent_go_ids = set()
     for goid, freq in go_counts.items():
         if freq >= config['min_annotations']:
             frequent_go_ids.add(goid)
-    print(len(frequent_go_ids), 'frequent GO IDs from uniprot proteins in', quickgo_expanded_path)
+    print(len(frequent_go_ids), 'frequent GO IDs from uniprot proteins in', goa_parsed_frequent)
 
     all_annotations = [x for x in all_annotations if x[1] in frequent_go_ids]
     frequent_prots = set([protid for protid, goid, evi, taxid in all_annotations])
-    print(len(frequent_prots), 'uniprot proteins with frequent GOs in', quickgo_expanded_path)
+    print(len(frequent_prots), 'uniprot proteins with frequent GOs in', goa_parsed_frequent)
 
     run_command(['mkdir', 'input'])
 

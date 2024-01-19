@@ -3,11 +3,16 @@ configfile: "config.yml"
 extract_esm_script = "esm/scripts/extract.py"
 
 quickgo_gaf = "databases/QuickGO-annotations-1697773507369-20231020.gaf"
-quickgo_parsed = "databases/goa_parsed.tsv.gz"
+goa_parsed = "databases/goa_parsed.tsv.gz"
+
+goa_parsed = 'databases/goa_parsed.tsv.gz'
+goa_parsed_expanded = 'databases/goa_parsed_expanded.tsv.gz'
+goa_parsed_frequent = 'databases/goa_parsed_frequent.tsv.gz'
+
 uniprot_fasta = "databases/uniprot_sprot.fasta.gz"
 go_basic = "databases/go-basic.obo"
 
-quickgo_expanded = "input/quickgo_expanded.tsv.gz"
+#quickgo_expanded = "input/quickgo_expanded.tsv.gz"
 proteins_for_learning = "input/proteins.fasta"
 input_annotation_path = 'input/annotation.tsv'
 taxon_features = 'input/features/taxon_one_hot.npy'
@@ -28,14 +33,12 @@ rule download_esm:
     shell:
         "rm -rf esm && git clone git@github.com:facebookresearch/esm.git"
 
-rule parse_quickgo:
+rule download_goa:
     input:
-        config['go_annotation_raw'],
         'evi_not_to_use.txt',
         go_basic
     output:
-        quickgo_parsed,
-        quickgo_expanded
+        goa_parsed_frequent
     shell:
         "conda run --live-stream -n plm python src/download_annotation.py"
 
@@ -47,7 +50,7 @@ rule download_uniprot:
 
 rule annotated_protein_list:
     input:
-        quickgo_expanded,
+        goa_parsed_frequent,
         uniprot_fasta
     output:
         proteins_for_learning,

@@ -5,10 +5,12 @@ import numpy as np
 
 config = yaml.safe_load(open("config.yml", "r"))
 goa_parsed = 'databases/goa_parsed.tsv.gz'
+goa_parsed_expanded = 'databases/goa_parsed_expanded.tsv.gz'
+goa_parsed_frequent = 'databases/goa_parsed_frequent.tsv.gz'
 go_not_use_path = 'databases/gocheck_do_not_annotate.json'
 go_basic_path = "databases/go-basic.obo"
 
-quickgo_expanded_path = "input/quickgo_expanded.tsv.gz"
+#quickgo_expanded_path = "input/quickgo_expanded.tsv.gz"
 input_annotation_path = 'input/annotation.tsv'
 input_features_path = 'input/features.npy'
 input_features_ids_path = 'input/ids.txt'
