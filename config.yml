@@ -4,3 +4,5 @@ go_annotation_raw: /data/home/pitagoras/data/go/goa_uniprot_all.gaf.gz
 esm_libraries: /storages/macaiba/pitagoras/vol/data/esm_embedding
 esm_processes: 18
 esm_models_to_use: [30, 33]
+testing_perc: 0.25
+validation_perc: 0.15

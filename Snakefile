@@ -13,6 +13,7 @@ input_annotation_path = 'input/annotation.tsv'
 taxon_features = 'input/features/taxon_one_hot.npy'
 esm_features = 'input/features/esm.npy'
 input_features_path = 'input/features.npy'
+input_labels_path = 'input/labels.tsv'
 
 rule download_go:
     output:
@@ -62,3 +63,11 @@ rule create_features:
         input_features_path
     shell:
         "conda run --live-stream -n plm python src/calc_features.py "+proteins_for_learning+" input/features"
+
+rule list_labels:
+    input:
+        input_features_path
+    output:
+        input_labels_path
+    shell:
+        "conda run --live-stream -n plm python src/label_lists.py"
