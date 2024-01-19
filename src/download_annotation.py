@@ -25,7 +25,7 @@ if __name__ == '__main__':
         run_command(download_cmd)
         run_command(['mv', 'goa_uniprot_all.gaf.gz', config['go_annotation_raw']])
 
-    print('Counting length of ', config['go_annotation_raw'])
+    '''print('Counting length of ', config['go_annotation_raw'])
     count_ann_total_lines = count_lines(config['go_annotation_raw'])
     
     bar = tqdm(total = count_ann_total_lines)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     print(incorrect_line_number, 'incorrect_line_number')
     print(quickgolines - other_dbs - other_ontos - droped - incorrect_line_number, len(parsed))
     output_path = goa_parsed
-    write_file(output_path).write('\n'.join(parsed))
+    write_file(output_path).write('\n'.join(parsed))'''
 
     parsed = open_file(goa_parsed).read().split('\n')
 

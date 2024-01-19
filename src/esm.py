@@ -12,6 +12,8 @@ def run_esm_extract(args: dict):
     fasta_input = args['fasta_input']
     esm_model_name = args['esm_model_name']
     esm_output_dir = args['esm_output_dir']
+    #tmp_output_dir = fasta_input.rstrip('.fasta')+'_output'
+    #run_command(['mkdir', tmp_output_dir])
     esm_cmd = ['python esm/scripts/extract.py', esm_model_name, 
         fasta_input, esm_output_dir, '--include mean --toks_per_batch 10000']
     run_command(esm_cmd)
@@ -50,6 +52,9 @@ class ESM_Embedder():
                 run_command(['mkdir', p])
         
         print('Libraries:', self.lib_paths)
+        self.find_calculated()
+    
+    def find_calculated(self):
         self.calculated_embs = {x: set() for x in ESM_Embedder.model_names.keys()}
         for emb_len, calculated in self.calculated_embs.items():
             if emb_len in self.lib_paths:
@@ -104,8 +109,8 @@ class ESM_Embedder():
         download_esm_model(esm_model_name)
         
         esm_output_dir = self.lib_paths[emb_len]
-        if path.exists(esm_output_dir):
-            run_command(['rm -rf', esm_output_dir])
+        '''if path.exists(esm_output_dir):
+            run_command(['rm -rf', esm_output_dir])'''
         esm_run_params = [{'fasta_input': fasta_part, 'esm_model_name': esm_model_name,
                         'esm_output_dir': esm_output_dir}
             for fasta_part in fasta_parts]

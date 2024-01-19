@@ -25,6 +25,7 @@ def calc_fairesm(fasta_input, output_dir):
         print('Calculating ESM', emb_len, 'embeddings')
         features_path = fairesm_features.replace('*', str(emb_len)+'.npy')
         embedder.calc_embeddings(fasta_input, emb_len)
+        embedder.find_calculated()
         embedder.export_embeddings(emb_len, uniprot_ids, features_path)
         features_ids_path = features_path.replace('.npy', '_ids.txt')
         open(features_ids_path, 'w').write('\n'.join(uniprot_ids))
