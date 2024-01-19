@@ -1,7 +1,9 @@
+from collections import Counter
 import gzip
 from fasta import filter_fasta
 
-from util import load_parsed_goa, run_command, config, write_parsed_goa, input_annotation_path
+from util import (load_parsed_goa, run_command, config, write_parsed_goa,
+    input_annotation_path, quickgo_expanded_path)
 
 
 def chunks(lst, n):
@@ -20,40 +22,37 @@ def create_filtered_annotation_and_fasta(allowed_uniprot):
     protein_ann = {}
     ann_dropped = 0
     anns = 0
-    all_annotations = load_parsed_goa()
-    for protid, goid, evi, taxid in all_annotations:
-        if protid in allowed_uniprot:
-            if not goid in protein_ann:
-                protein_ann[goid] = set()
-            protein_ann[goid].add(protid)
-        else:
-            #print('Not swiss prot')
-            ann_dropped += 1
-        anns += 1
+    all_annotations = load_parsed_goa(file_path=quickgo_expanded_path)
+    all_proteins = set([protid for protid, goid, evi, taxid in all_annotations])
+    print(len(all_proteins), 'proteins in', quickgo_expanded_path)
+    all_goids = set([goid for protid, goid, evi, taxid in all_annotations])
+    print(len(all_goids), 'GO IDs in', quickgo_expanded_path)
 
-    print(ann_dropped, 'of', anns, 'annotations dropped by invalid protein')
-        
-    print(len(protein_ann), 'GOs with annotation')
-    protein_ann = {goid: protids for goid, protids in protein_ann.items() 
-        if len(protids) >= config['min_annotations']}
-    print(len(protein_ann), 'GOs with enough annotation')
-    allowed_goids = set(protein_ann.keys())
-    frequent_prots = set()
-    for goid, protids in protein_ann.items():
-        frequent_prots.update(protids)
-    print(len(frequent_prots), 'frequent proteins')
+    all_annotations = [x for x in all_annotations if x[0] in allowed_uniprot]
+    all_proteins = set([protid for protid, goid, evi, taxid in all_annotations])
+    print(len(all_proteins), 'uniprot proteins in', quickgo_expanded_path)
+
+    goid_list = [goid for protid, goid, evi, taxid in all_annotations]
+    print(len(set(goid_list)), 'GO IDs from uniprot proteins in', quickgo_expanded_path)
+    go_counts = Counter(goid_list)
+    frequent_go_ids = set()
+    for goid, freq in go_counts.items():
+        if freq >= config['min_annotations']:
+            frequent_go_ids.add(goid)
+    print(len(frequent_go_ids), 'frequent GO IDs from uniprot proteins in', quickgo_expanded_path)
+
+    all_annotations = [x for x in all_annotations if x[1] in frequent_go_ids]
+    frequent_prots = set([protid for protid, goid, evi, taxid in all_annotations])
+    print(len(frequent_prots), 'uniprot proteins with frequent GOs in', quickgo_expanded_path)
+
     run_command(['mkdir', 'input'])
+
     proteins_for_learning_fasta = "input/proteins.fasta"
     filter_fasta(swiss_prot_fasta, frequent_prots, proteins_for_learning_fasta,
         id_pos = 1)
-    
-    all_annotations = load_parsed_goa()
-    annotations = []
-    for protid, goid, evi, taxid in all_annotations:
-        if protid in frequent_prots and goid in allowed_goids:
-            annotations.append((protid, goid, evi, taxid))
-    print(len(annotations), 'annotations kept for training')
-    write_parsed_goa(annotations, input_annotation_path)
+
+    print(len(all_annotations), 'annotations kept for training')
+    write_parsed_goa(all_annotations, input_annotation_path)
 
 if __name__ == '__main__':
     swiss_prot_fasta = "databases/uniprot_sprot.fasta.gz"
