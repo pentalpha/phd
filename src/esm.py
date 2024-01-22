@@ -1,12 +1,14 @@
 from os import path
 from glob import glob
+from pickle import dump
+import sys
 import torch
 import numpy as np
 from multiprocessing import Pool
 from tqdm import tqdm
 
 from fasta import fasta_equal_split, remove_from_fasta
-from util import config, run_command
+from util import config, run_command, write_file
 
 def run_esm_extract(args: dict):
     fasta_input = args['fasta_input']
@@ -35,6 +37,12 @@ class ESM_Embedder():
         33: 'esm2_t33_650M_UR50D',
         30: 'esm2_t30_150M_UR50D',
         12: 'esm2_t12_35M_UR50D' 
+    }
+
+    model_dim = {
+        33: 1280,
+        30: 640,
+        12: 480
     }
 
     def __init__(self) -> None:
@@ -67,34 +75,53 @@ class ESM_Embedder():
             else:
                 print('ESM', emb_len, ': not created yet')
 
-    def load_embedding(self, emb_len: int, uniprotid: str):
-        if uniprotid in self.calculated_embs[emb_len]:
-            emb_path = path.join(self.lib_paths[emb_len], uniprotid+'.pt')
+    def load_embedding(self, emb_layers: int, uniprotid: str):
+        if uniprotid in self.calculated_embs[emb_layers]:
+            emb_path = path.join(self.lib_paths[emb_layers], uniprotid+'.pt')
             x = torch.load(emb_path)
-            emb = np.array(x['mean_representations'][emb_len].tolist())
-            return emb
+            emb = x['mean_representations'][emb_layers].tolist()
+            if len(emb) == ESM_Embedder.model_dim[emb_layers]:
+                return emb
+            else:
+                print(uniprotid, 'embedding had', len(emb), 'values, not', 
+                    ESM_Embedder.model_dim[emb_layers], file=sys.stderr)
+                return None
         else:
-            return np.nan
+            print(uniprotid, 'not found at dictionary with', 
+                len(self.calculated_embs[emb_layers]), 'keys', file=sys.stderr)
+            return None
     
-    def get_embeddings(self, emb_len: int, uniprotids: list, as_np=False):
+    def get_embeddings(self, emb_len: int, uniprotids: list):
         print('Loading', emb_len, 'embeddings for', len(uniprotids), 'proteins')
         embs_list = [self.load_embedding(emb_len, ID) for ID in tqdm(uniprotids)]
-        if as_np:
-            embs_list = np.asarray(embs_list)
         return embs_list
     
     def export_embeddings(self, emb_len: int, uniprotids: list, output_path: str):
-        embs_np_obj = self.get_embeddings(emb_len, uniprotids, as_np=True)
-        print('saving embeddings for', len(uniprotids), 'proteins')
-        np.save(open(output_path, 'wb'), embs_np_obj)
+        embs_list = self.get_embeddings(emb_len, uniprotids)
+
+        proccesed_uniprotids = [uniprotids[i] for i in range(len(embs_list)) if embs_list[i]]
+        proccesed_embs_list = [embs_list[i] for i in range(len(embs_list)) if embs_list[i]]
+        print(len(embs_list) - len(proccesed_embs_list), 'protein IDs had invalid embeddings')
+        print('saving embeddings for', len(proccesed_uniprotids), 'proteins')
+
+        features_ids_path = output_path.replace('.tsv.gz', '_ids.txt')
+        open(features_ids_path, 'w').write('\n'.join(proccesed_uniprotids))
+        output = write_file(output_path)
+        for embs in proccesed_embs_list:
+            output.write('\t'.join([str(x) for x in embs]) + '\n')
+        output.close()
+
+        return features_ids_path, output_path
 
     def calc_embeddings(self, input_fasta: str, emb_len: int):
         calculated_proteins = self.calculated_embs[emb_len]
+        print('Q6UY62 is in calculated_proteins', 'Q6UY62' in calculated_proteins)
         if len(calculated_proteins) > 0:
             print('Some embeddings have already been calculated')
             print('Removing them from the input fasta')
             to_process_fasta = self.esm_dir+'/to_calc_'+str(emb_len)+'.fasta'
             kept = remove_from_fasta(input_fasta, calculated_proteins, to_process_fasta)
+            print('Q6UY62 is in kept', 'Q6UY62' in kept)
             if len(kept) == 0:
                 run_command(['rm', to_process_fasta])
                 print('All proteins calculated')

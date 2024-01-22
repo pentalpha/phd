@@ -1,5 +1,6 @@
 from collections import Counter
 from multiprocessing import Pool
+from pickle import load
 import sys
 from os import path
 import torch
@@ -18,17 +19,19 @@ from fasta import fasta_equal_split, ids_from_fasta
 from esm import ESM_Embedder
 
 def calc_fairesm(fasta_input, output_dir):
-    embedder = ESM_Embedder()
+    #embedder = ESM_Embedder()
     uniprot_ids, _ = ids_from_fasta(fasta_input)
     feature_dfs = []
+    print('Q6UY62 is in uniprot_ids', 'Q6UY62' in uniprot_ids)
     for emb_len in config['esm_models_to_use']:
         print('Calculating ESM', emb_len, 'embeddings')
-        features_path = fairesm_features.replace('*', str(emb_len)+'.npy')
-        embedder.calc_embeddings(fasta_input, emb_len)
+        features_path = fairesm_features.replace('*', str(emb_len)+'.tsv.gz')
+        features_ids_path = features_path.replace('.tsv.gz', '_ids.txt')
+        '''embedder.calc_embeddings(fasta_input, emb_len)
         embedder.find_calculated()
-        embedder.export_embeddings(emb_len, uniprot_ids, features_path)
-        features_ids_path = features_path.replace('.npy', '_ids.txt')
-        open(features_ids_path, 'w').write('\n'.join(uniprot_ids))
+        embedder.export_embeddings(emb_len, 
+            uniprot_ids, features_path)'''
+        
         feature_dfs.append((features_ids_path, features_path))
     
     return feature_dfs
@@ -76,12 +79,15 @@ def make_features(esm_feature_dfs):
     print('Loading esm features')
     esms = []
     for esm_ids_path, esm_path in esm_feature_dfs:
-        features_list = np.load(esm_path)
+        features_list = []
+        for rawline in open_file(esm_path):
+            features_list.append(
+                [float(x) for x in rawline.rstrip('\n').split('\t')])
         prot_ids_list = open(esm_ids_path, 'r').read().split('\n')
         assert len(features_list) == len(prot_ids_list)
         esm_features_dict = {prot_ids_list[i]: features_list[i] 
-            for i in range(len(prot_ids_list))}
-        esm_len = int(path.basename(esm_path).rstrip('.npy').split('_')[-1])
+            for i in range(len(prot_ids_list)) if features_list[i]}
+        esm_len = int(path.basename(esm_path).rstrip('.tsv.gz').split('_')[-1])
         esms.append((esm_len, esm_features_dict))
     
     print('Creating features')
@@ -94,7 +100,7 @@ def make_features(esm_feature_dfs):
         all_data = True
 
         if taxid in taxons:
-            feature_vec.append(taxons[taxid])
+            feature_vec.append(taxons[taxid].tolist())
         else:
             feature_vec.append(None)
             no_taxid += 1
