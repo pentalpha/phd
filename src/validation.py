@@ -5,8 +5,8 @@ from tqdm import tqdm
 #from skmultilearn.model_selection import iterative_train_test_split
 
 from util import (input_features_ids_path, 
-    input_labels_path, label_lists_to_onehot, load_label_lists, open_file, config,
-    input_features_ids_validation_path, input_features_ids_traintest_path)
+    input_labels_path, label_lists_to_onehot, load_features_from_dir, load_label_lists, load_labels_from_dir, open_file, config,
+    input_features_ids_validation_path, input_features_ids_traintest_path, run_command)
 
 if __name__ == '__main__':
     proteins_by_taxid = {}
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     validation_set = []
     sorted_taxons = sorted(list(proteins_by_taxid.keys()), key=lambda taxid: len(proteins_by_taxid[taxid]))
     for taxonid in tqdm(sorted_taxons):
-        protids = proteins_by_taxid[taxonid]
+        protids = [x+'\t'+taxonid for x in proteins_by_taxid[taxonid]]
         all_proteins.update(protids)
         n_validation = int(len(protids)*config['validation_perc'])
         print('\n', taxonid, len(protids), n_validation, n_validation/len(protids))
@@ -50,9 +50,34 @@ if __name__ == '__main__':
         print('\t', len(validation_set), 'proteins for validation')
         print('\t', len(validation_set) / (len(all_proteins) + len(validation_set)))
     
-    print(len(validation_set), 'proteins for validation')
-    open(input_features_ids_validation_path, 'w').write('\n'.join(sorted(validation_set)))
+    print('Sorting')
+    #print(len(validation_set), 'proteins for validation')
+    validation_list = sorted(validation_set)
+    #open(input_features_ids_validation_path, 'w').write('\n'.join(validation_list))
     traintest_set = [x for x in all_proteins if not x in validation_set]
-    print(len(traintest_set), 'proteins for train/test')
-    open(input_features_ids_traintest_path, 'w').write('\n'.join(sorted(traintest_set)))
+    #print(len(traintest_set), 'proteins for train/test')
+    train_test_list = sorted(traintest_set)
+    #open(input_features_ids_traintest_path, 'w').write('\n'.join(train_test_list))
     print(len(validation_set) / (len(traintest_set) + len(validation_set)))
+
+    #all_ids, all_features, index = load_features_from_dir('input')
+
+    protein_sets = [(validation_list, 'validation'), (train_test_list, 'traintest')]
+    for protein_list, setname in protein_sets:
+        print(len(protein_list), 'proteins for', setname)
+        directory = 'input/'+setname
+        run_command(['mkdir', directory])
+        ids_file = directory+'/ids.txt'
+        labels_file = directory+'/labels.tsv'
+        features_file = directory+'/features.npy'
+        
+        open(ids_file, 'w').write('\n'.join(protein_list))
+        local_features, local_index = load_features_from_dir('input', ids_allowed=protein_list)
+        np.save(features_file, local_features)
+        print('Writing labels')
+        local_labels = load_labels_from_dir('input', ids_allowed=protein_list)
+        label_output = open(labels_file, 'w')
+        for protein in protein_list:
+            labellist = local_labels[protein]
+            label_output.write(protein+'\n'+','.join(labellist)+'\n')
+        label_output.close()

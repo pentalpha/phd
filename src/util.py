@@ -1,5 +1,6 @@
 import gzip
 import subprocess
+from tqdm import tqdm
 import yaml
 import numpy as np
 
@@ -111,3 +112,39 @@ def label_lists_to_onehot(label_lists: list):
         one_hot.append(np.array(vec))
 
     return np.asarray(one_hot)
+
+def load_features_from_dir(dirname: str, ids_allowed: list = []):
+    features_path = dirname+'/features.npy'
+    ids_path = dirname+'/ids.txt'
+
+    features = np.load(features_path)
+    ids = open(ids_path, 'r').read().split('\n')
+
+    protein_indexes = {ids[i]: i for i in range(len(ids))}
+
+    new_index = {}
+    local_features = []
+    i = 0
+    print('Selecting features of proteins')
+    for protein in tqdm(ids_allowed):
+        feature_index = protein_indexes[protein]
+        feature_vec = features[feature_index]
+        local_features.append(feature_vec)
+        new_index[protein] = i
+        i+= 1
+    print('Converting')
+    local_features = np.asarray(local_features)
+
+    return local_features, new_index
+
+def load_labels_from_dir(dirname: str, ids_allowed: list = []):
+    labels_path = dirname+'/labels.tsv'
+
+    labels = {}
+    for rawline in open(labels_path, 'r'):
+        uniprotid, taxonid, gos = rawline.rstrip('\n').split('\t')
+        protid = uniprotid+'\t'+taxonid
+        if protid in ids_allowed:
+            labels[protid] = gos.split(',')
+
+    return labels
