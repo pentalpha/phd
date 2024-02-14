@@ -141,10 +141,26 @@ def load_labels_from_dir(dirname: str, ids_allowed: list = []):
     labels_path = dirname+'/labels.tsv'
 
     labels = {}
+    anns = {}
     for rawline in open(labels_path, 'r'):
         uniprotid, taxonid, gos = rawline.rstrip('\n').split('\t')
         protid = uniprotid+'\t'+taxonid
         if protid in ids_allowed:
-            labels[protid] = gos.split(',')
+            go_list = gos.split(',')
+            labels[protid] = go_list
+            for go in go_list:
+                if not go in anns:
+                    anns[go] = set()
+                anns[go].add(protid)
 
-    return labels
+
+    return labels, anns
+
+def create_labels_matrix(labels: dict, ids_allowed: list, gos_allowed: list):
+    label_vecs = []
+    for protid in ids_allowed:
+        gos_in_prot = labels[protid]
+        one_hot_labels = [1 if go in gos_in_prot else 0 for go in gos_allowed]
+        label_vecs.append(np.array(one_hot_labels))
+    
+    return np.asarray(label_vecs)

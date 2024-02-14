@@ -79,5 +79,5 @@ if __name__ == '__main__':
         label_output = open(labels_file, 'w')
         for protein in protein_list:
             labellist = local_labels[protein]
-            label_output.write(protein+'\n'+','.join(labellist)+'\n')
+            label_output.write(protein+'\t'+','.join(labellist)+'\n')
         label_output.close()
