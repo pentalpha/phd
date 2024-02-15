@@ -31,8 +31,6 @@ rule download_go:
         " && wget https://purl.obolibrary.org/obo/go/go-basic.obo"
 
 rule download_esm:
-    output:
-        extract_esm_script
     shell:
         "rm -rf esm && git clone git@github.com:facebookresearch/esm.git"
 
@@ -80,7 +78,8 @@ rule list_labels:
 
 rule sep_validation:
     input:
-        input_features_ids_path
+        input_features_ids_path,
+        input_labels_path
     output:
         input_features_ids_traintest_path,
         input_features_ids_validation_path

@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 #from skmultilearn.model_selection import iterative_train_test_split
 
-from util import (load_features, load_labels_from_dir, open_file, 
+from util import (filter_features, load_features, load_labels_from_dir, open_file, 
     config, run_command, write_file)
 
 from util import (features_taxon_path, input_features_ids_path, features_taxon_prefix,
@@ -102,25 +102,11 @@ if __name__ == '__main__':
         label_output.close()
 
         print('Writing taxa')
-        taxon_features = load_features(features_taxon_path, protein_list, int)
-        taxon_output = write_file(taxon_file)
-        for i in tqdm(range(len(taxon_features))):
-            taxa_onehot = taxon_features[i]
-            line = '\t'.join([str(x) for x in taxon_features])
-            startline = '\n' if i > 0 else ''
-            taxon_output.write(startline+line)
-        taxon_output.close()
+        filter_features(features_taxon_path, protein_list, taxon_file)
 
         print('Writing ESM')
         esm_feature_paths = glob(features_esm_base_path)
         for esm_feature_path in esm_feature_paths:
             basename = path.basename(esm_feature_path)
             local_esm_path = directory+'/'+basename
-            features = load_features(esm_feature_path, protein_list, float)
-            esm_output = write_file(local_esm_path)
-            for i in tqdm(range(len(features))):
-                f = features[i]
-                line = '\t'.join([str(x) for x in f])
-                startline = '\n' if i > 0 else ''
-                esm_output.write(startline+line)
-            esm_output.close()
+            filter_features(esm_feature_path, protein_list, local_esm_path)

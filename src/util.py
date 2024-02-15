@@ -1,4 +1,4 @@
-import glob
+from glob import glob
 import gzip
 from os import path
 import subprocess
@@ -148,7 +148,6 @@ def load_features(feature_file_path: str, subset: list, converter):
     ids_path = path.dirname(feature_file_path)+'/ids.txt'
 
     ids = open(ids_path, 'r').read().split('\n')
-    feature_file = open_file(feature_file_path)
     features = []
     id_to_line = {}
     line_i = 0
@@ -157,6 +156,8 @@ def load_features(feature_file_path: str, subset: list, converter):
         id_to_line[protid] = line_i
         line_i += 1
 
+    bar = tqdm(total=len(subset))
+    feature_file = open_file(feature_file_path)
     line_i = 0
     while line_i < len(ids):
         current_line = feature_file.readline()
@@ -166,8 +167,42 @@ def load_features(feature_file_path: str, subset: list, converter):
             vals = [converter(x) for x in cols]
             correct_line = id_to_line[current_id]
             features[correct_line] = vals
+            bar.update(1)
         line_i += 1
+    bar.close()
     assert not (None in features)
+    return features
+
+
+def filter_features(feature_file_path: str, subset: list, new_feature_file_path: str):
+    ids_path = path.dirname(feature_file_path)+'/ids.txt'
+
+    ids = open(ids_path, 'r').read().split('\n')
+    feature_file = open_file(feature_file_path)
+    
+    features = []
+    id_to_line = {}
+    line_i = 0
+    for protid in subset:
+        features.append(None)
+        id_to_line[protid] = line_i
+        line_i += 1
+
+    bar = tqdm(total=len(subset))
+    line_i = 0
+    while line_i < len(ids):
+        current_line = feature_file.readline()
+        current_id = ids[line_i]
+        if current_id in subset:
+            correct_line = id_to_line[current_id]
+            features[correct_line] = current_line.rstrip('\n')
+            bar.update(1)
+        line_i += 1
+    bar.close()
+    assert not (None in features)
+
+    feature_file2 = write_file(new_feature_file_path)
+    feature_file2.write('\n'.join(features))
     return features
 
 def load_labels_from_dir(dirname: str, ids_allowed: list = []):
@@ -175,6 +210,7 @@ def load_labels_from_dir(dirname: str, ids_allowed: list = []):
 
     labels = {}
     anns = {}
+    bar = tqdm(total=len(ids_allowed))
     for rawline in open(labels_path, 'r'):
         uniprotid, taxonid, gos = rawline.rstrip('\n').split('\t')
         protid = uniprotid+'\t'+taxonid
@@ -185,7 +221,8 @@ def load_labels_from_dir(dirname: str, ids_allowed: list = []):
                 if not go in anns:
                     anns[go] = set()
                 anns[go].add(protid)
-
+            bar.update(1)
+    bar.close()
 
     return labels, anns
 
@@ -205,15 +242,25 @@ def load_dataset_from_dir(dirname: str, subset: list = []):
         subset = open(ids_path, 'r').read().split('\n')
     labels, annotations = load_labels_from_dir(dirname, ids_allowed=subset)
 
+    features = []
+
     taxa_path = dirname+'/'+features_taxon_prefix
+    print('loading', taxa_path)
     taxa_features = load_features(taxa_path, subset, int)
+    features.append(('taxa', taxa_features))
 
     esm_paths = glob(dirname+'/'+features_esm_prefix)
-    esms = []
     for esm_path in esm_paths:
         esm_len_str = esm_path.split('.')[-3].split('_')[-1]
         esm_len = int(esm_len_str)
+        print('loading', esm_path)
         esm_features = load_features(esm_path, subset, float)
-        esms.append(esm_len, esm_features)
+        features.append(('esm_'+str(esm_len), esm_features))
     
-    return taxa_features, esms, labels, annotations
+    return features, labels, annotations
+
+def get_items_at_indexes(all_items, indexes):
+    new_items = []
+    for i in indexes:
+        new_items.append(all_items[i])
+    return new_items
