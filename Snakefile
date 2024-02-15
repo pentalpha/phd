@@ -20,8 +20,8 @@ esm_features = 'input/features/esm.npy'
 input_features_path = 'input/features.npy'
 input_labels_path = 'input/labels.tsv'
 input_features_ids_path = 'input/ids.txt'
-input_features_ids_traintest_path = 'input/ids_traintest.txt'
-input_features_ids_validation_path = 'input/ids_validation.txt'
+input_features_ids_traintest_path = 'input/traintest/ids.txt'
+input_features_ids_validation_path = 'input/validation/ids.txt'
 
 rule download_go:
     output:
@@ -66,14 +66,13 @@ rule create_features:
         proteins_for_learning,
         extract_esm_script
     output:
-        input_features_path,
         input_features_ids_path
     shell:
         "conda run --live-stream -n plm python src/calc_features.py "+proteins_for_learning+" input/features"
 
 rule list_labels:
     input:
-        input_features_path
+        input_features_ids_path
     output:
         input_labels_path
     shell:

@@ -1,4 +1,6 @@
+import glob
 import gzip
+from os import path
 import subprocess
 from tqdm import tqdm
 import yaml
@@ -18,9 +20,14 @@ input_features_ids_path = 'input/ids.txt'
 input_features_ids_traintest_path = 'input/ids_traintest.txt'
 input_features_ids_validation_path = 'input/ids_validation.txt'
 input_labels_path = 'input/labels.tsv'
-taxon_features = 'input/features/taxon_one_hot.npy'
+taxon_features = 'input/features/taxon_one_hot.tsv.gz'
 taxon_features_ids = 'input/features/taxon_one_hot_ids.txt'
 fairesm_features = 'input/features/fairesm_*'
+
+features_esm_prefix = 'feature_esm_*.tsv.gz'
+features_taxon_prefix = 'feature_taxa.tsv.gz'
+features_taxon_path = 'input/'+features_taxon_prefix
+features_esm_base_path = 'input/'+features_esm_prefix
 
 def run_command(cmd_vec, stdin="", no_output=True):
     '''Executa um comando no shell e retorna a saída (stdout) dele.'''
@@ -137,6 +144,32 @@ def load_features_from_dir(dirname: str, ids_allowed: list = []):
 
     return local_features, new_index
 
+def load_features(feature_file_path: str, subset: list, converter):
+    ids_path = path.dirname(feature_file_path)+'/ids.txt'
+
+    ids = open(ids_path, 'r').read().split('\n')
+    feature_file = open_file(feature_file_path)
+    features = []
+    id_to_line = {}
+    line_i = 0
+    for protid in subset:
+        features.append(None)
+        id_to_line[protid] = line_i
+        line_i += 1
+
+    line_i = 0
+    while line_i < len(ids):
+        current_line = feature_file.readline()
+        current_id = ids[line_i]
+        if current_id in subset:
+            cols = current_line.rstrip('\n').split('\t')
+            vals = [converter(x) for x in cols]
+            correct_line = id_to_line[current_id]
+            features[correct_line] = vals
+        line_i += 1
+    assert not (None in features)
+    return features
+
 def load_labels_from_dir(dirname: str, ids_allowed: list = []):
     labels_path = dirname+'/labels.tsv'
 
@@ -164,3 +197,23 @@ def create_labels_matrix(labels: dict, ids_allowed: list, gos_allowed: list):
         label_vecs.append(np.array(one_hot_labels))
     
     return np.asarray(label_vecs)
+
+
+def load_dataset_from_dir(dirname: str, subset: list = []):
+    if len(subset) == 0:
+        ids_path = dirname+'/ids.txt'
+        subset = open(ids_path, 'r').read().split('\n')
+    labels, annotations = load_labels_from_dir(dirname, ids_allowed=subset)
+
+    taxa_path = dirname+'/'+features_taxon_prefix
+    taxa_features = load_features(taxa_path, subset, int)
+
+    esm_paths = glob(dirname+'/'+features_esm_prefix)
+    esms = []
+    for esm_path in esm_paths:
+        esm_len_str = esm_path.split('.')[-3].split('_')[-1]
+        esm_len = int(esm_len_str)
+        esm_features = load_features(esm_path, subset, float)
+        esms.append(esm_len, esm_features)
+    
+    return taxa_features, esms, labels, annotations
