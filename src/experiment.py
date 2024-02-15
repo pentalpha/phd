@@ -73,6 +73,56 @@ def cluster_gos_by_freq_percentiles(go_labels: dict):
 
     return go_sets
 
+
+
+def make_dataset(dirname, protein_list, go_set):
+    print('Loading features')
+    X, labels, annotations = load_dataset_from_dir(dirname, protein_list)
+    for feature_name, feature_vec in X:
+        print('\t', feature_name, len(feature_vec), len(feature_vec[0]))
+
+    print('Creating go label one hot encoding')
+    Y = create_labels_matrix(labels, protein_list, go_set)
+    print('\t', Y.shape)
+
+    return X, Y
+
+def split_train_test(ids, X, Y):
+
+    print('Train/test is', len(ids))
+    total_with_val = len(ids) / (1.0 - config['validation_perc'])
+    print('Total proteins was', total_with_val)
+    test_n = total_with_val*config['testing_perc']
+    print('Test total should be', test_n)
+    testing_perc_local = test_n / len(ids)
+    print('So the local testing perc. is', testing_perc_local)
+    print('Splitting train and test')
+    protein_indexes = np.asarray([np.array([i]) for i in range(len(ids))])
+    train_ids, train_y, test_ids, test_y = iterative_train_test_split(
+        protein_indexes, 
+        Y, 
+        test_size = testing_perc_local)
+    
+    train_feature_indices = [i_vec[0] for i_vec in train_ids]
+    test_feature_indices = [i_vec[0] for i_vec in test_ids]
+    train_x = []
+    test_x = []
+    for name, feature_vec in X:
+        sub_vec_train = get_items_at_indexes(feature_vec, train_feature_indices)
+        sub_vec_test = get_items_at_indexes(feature_vec, test_feature_indices)
+        train_x.append((name, sub_vec_train))
+        test_x.append((name, sub_vec_test))
+
+    return train_ids, train_x, train_y, test_ids, test_x, test_y
+
+def x_to_np(x):
+    print('Converting features to np')
+    for i in range(len(x)):
+        feature_name, feature_vec = x[i]
+        x[i] = (feature_name, np.asarray([np.array(vec) for vec in feature_vec]))
+        print(feature_name, x[i][1].shape)
+    return x
+
 def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
     
     print('Converting features to np')
@@ -148,49 +198,63 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
         metrics=['binary_accuracy', keras.metrics.AUC()])
 
     print('Fiting')
+    x_test_vec = [x for name, x in test_x]
     history = model.fit([x for name, x in train_x], train_y,
-        validation_data=([x for name, x in test_x], test_y),
+        validation_data=(x_test_vec, test_y),
         epochs=30, batch_size=256,
         callbacks=[lr_callback])
-
-    '''param_dict = {'batch_size': 1070, 'learning_rate': 0.001, 'epochs': 20, 
-                      'hidden1': 0.71, 'hidden2': 0.82}
-    size_factors = [param_dict['hidden1'], param_dict['hidden2']]
-    optimizer = keras.optimizers.Adam(learning_rate=param_dict['learning_rate'])
-
-    n_features = len(train_x[0])
-    first = keras.layers.BatchNormalization(input_shape=[n_features])
-    last = keras.layers.Dense(units=len(train_y[0]), activation='sigmoid')
-    hidden_sizes = [n_features*size_factor for size_factor in size_factors]
-    hidden_layers = [keras.layers.Dense(units=hidden_sizes[0], activation='relu'),
-                    keras.layers.Dense(units=hidden_sizes[1], activation='relu')]
-    model = keras.Sequential([first] + hidden_layers + [last])'''
     
-    # Compile model
-    '''self.model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-        loss=''
-    )'''
+    y_pred = model.predict(x_test_vec)
+    roc_auc_score = metrics.roc_auc_score(test_y, y_pred)
+    acc = np.mean(keras.metrics.binary_accuracy(test_y, y_pred).numpy())
 
-    '''print('Compiling')
-    # Compile model
-    model.compile(
-        optimizer=optimizer,
-        loss='binary_crossentropy'
-    )
-    
-    print('Fitting')
-    history = model.fit(
-        train_x, train_y,
-        batch_size=param_dict['batch_size'],
-        epochs=param_dict['epochs']
-    )'''
+    return model, {'ROC AUC': roc_auc_score, 'Accuracy': acc}
 
-    '''history_df = pd.DataFrame(history.history)
-    history_df.loc[:, ['mean_absolute_percentage_error']].plot(title="mean_absolute_percentage_error")
-    history_df.loc[:, ['val_mean_absolute_percentage_error']].plot(title="Val mean_absolute_percentage_error")'''
+def train_node(test_go_set, go_annotations, max_proteins=10000):
+    all_proteins = set()
+    for go in test_go_set:
+        annots = go_annotations[go]
+        print(go, len(annots))
+        all_proteins.update(annots)
     
-    return model
+    print(len(all_proteins), 'proteins')
+    protein_list = sorted(all_proteins)
+    if len(protein_list) > max_proteins:
+        protein_list = sample(protein_list, 10000)
+
+    print('Loading features')
+    features, local_labels = make_dataset('input/traintest', protein_list, test_go_set)
+    train_ids, train_x, train_y, test_ids, test_x, test_y = split_train_test(
+        protein_list, features, local_labels)
+
+    annot_model, stats = makeMultiClassifierModel(train_x, train_y, test_x, test_y)
+    print(stats)
+
+    return annot_model, stats
+
+def validate_model(nodes):
+    print('Loading validation')
+    val_protein_list = open('input/validation/ids.txt', 'r').read().split('\n')
+    print('Loading features')
+    val_features, labels, annotations = load_dataset_from_dir('input/validation', val_protein_list)
+    for feature_name, feature_vec in val_features:
+        print('\t', feature_name, len(feature_vec), len(feature_vec[0]))
+    val_features = x_to_np(val_features)
+    val_x = [x for name, x in val_features]
+
+    results = []
+    for annot_model, targets in nodes:
+        print('Creating go label one hot encoding')
+        val_y = create_labels_matrix(labels, val_protein_list, targets)
+        print('\t', val_y.shape)
+    
+        print('Validating')
+        val_y_pred = annot_model.predict(val_x)
+        roc_auc_score = metrics.roc_auc_score(val_y, val_y_pred)
+        print(roc_auc_score)
+        results.append(roc_auc_score)
+
+    return results
 
 if __name__ == '__main__':
     print('Loading train/test ids')
@@ -203,68 +267,6 @@ if __name__ == '__main__':
     test_go_set = go_lists[-1][-6:]
 
     print(test_go_set)
-    all_proteins = set()
-    for go in test_go_set:
-        annots = go_annotations[go]
-        print(go, len(annots))
-        all_proteins.update(annots)
-    
-    print(len(all_proteins), 'proteins')
-    protein_list = sorted(all_proteins)
-    protein_list = sample(protein_list, 10000)
-    print('Loading features')
-    features, labels, annotations = load_dataset_from_dir('input/traintest', protein_list)
-    for feature_name, feature_vec in features:
-        print('\t', feature_name, len(feature_vec), len(feature_vec[0]))
-
-    print('Creating go label one hot encoding')
-    local_labels = create_labels_matrix(labels, protein_list, test_go_set)
-    print('\t', local_labels.shape)
-
-    train_perc = 1.0 - config['validation_perc'] - config['testing_perc']
-
-    print('Train/test is', len(protein_list))
-    total_with_val = len(protein_list) / (1.0 - config['validation_perc'])
-    print('Total proteins was', total_with_val)
-    test_n = total_with_val*config['testing_perc']
-    print('Test total should be', test_n)
-    testing_perc_local = test_n / len(protein_list)
-    print('So the local testing perc. is', testing_perc_local)
-    print('Splitting train and test')
-    protein_indexes = np.asarray([np.array([i]) for i in range(len(protein_list))])
-    train_ids, train_y, test_ids, test_y = iterative_train_test_split(
-        protein_indexes, 
-        local_labels, 
-        test_size = testing_perc_local)
-    #protein_indices = {protein_list[i]: i for i in range(len(protein_list))}
-    train_feature_indices = [i_vec[0] for i_vec in train_ids]
-    test_feature_indices = [i_vec[0] for i_vec in test_ids]
-    train_x = []
-    test_x = []
-    for name, feature_vec in features:
-        sub_vec_train = get_items_at_indexes(feature_vec, train_feature_indices)
-        sub_vec_test = get_items_at_indexes(feature_vec, test_feature_indices)
-        train_x.append((name, sub_vec_train))
-        test_x.append((name, sub_vec_test))
-
-    annot_model = makeMultiClassifierModel(train_x, train_y, test_x, test_y)
-
-    print('Loading validation')
-    val_protein_list = open('input/validation/ids.txt', 'r').read().split('\n')
-    val_features, val_labels, _ = load_dataset_from_dir('input/validation', val_protein_list)
-    for feature_name, feature_vec in val_features:
-        print('\t', feature_name, len(feature_vec), len(feature_vec[0]))
-    print('Creating go label one hot encoding')
-    val_y = create_labels_matrix(val_labels, val_protein_list, test_go_set)
-    print('\t', val_y.shape)
-    print('Converting features to np')
-    for i in range(len(val_features)):
-        feature_name, feature_vec = val_features[i]
-        val_features[i] = (feature_name, np.asarray([np.array(vec) for vec in feature_vec]))
-        print(feature_name, val_features[i][1].shape)
-    val_x = [x for name, x in val_features]
-
-    print('Validating')
-    val_y_pred = annot_model.predict(val_x)
-    roc_auc_score = metrics.roc_auc_score(val_y, val_y_pred)
-    print(roc_auc_score)
+    annot_model, stats = train_node(test_go_set, go_annotations)
+    nodes = [(annot_model, test_go_set)]
+    roc_auc_scores = validate_model(nodes)
