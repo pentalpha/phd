@@ -7,3 +7,6 @@ esm/*
 esm
 up.sh
 down_input.sh
+.spyproject/*
+*.ini
+*.bak
