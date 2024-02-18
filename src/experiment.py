@@ -1,4 +1,9 @@
+import datetime
+import sys
+import json
 import os
+
+from gene_ontology import load_go_graph
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 import numpy as np
@@ -15,65 +20,14 @@ from keras import Model
 from keras.models import load_model
 from keras import backend as K
 print(keras.__version__)
-
 from sklearn import metrics
 from skmultilearn.model_selection import iterative_train_test_split
 
 from random import sample
 
-from util import create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, load_labels_from_dir, config
-
-def go_frequencies(go_labels: dict):
-    go_count = {}
-    for golist in go_labels.values():
-        for go in golist:
-            if not go in go_count:
-                go_count[go] = 0
-            go_count[go] += 1
-
-    tps = [(go, n) for go, n in go_count.items()]
-    tps.sort(key= lambda tp: tp[1])
-
-    return tps
-
-def cluster_gos_by_freq_percentiles(go_labels: dict):
-    go_freqs = go_frequencies(go_labels)
-    go_freqs = [(go, freq) for go, freq in go_freqs if (freq / len(traintest_ids)) < 0.9 and freq >= 20]
-    print(len(go_freqs), 'labels')
-    freq_vec = [y for x,y in go_freqs]
-
-    print('Counting percentiles')
-    percentiles = [30, 60, 90, 96]
-    perc_index = []
-    last_index = -1
-    for perc in percentiles:
-        print(perc, np.percentile(freq_vec, perc))
-        index = int(len(go_freqs)*(perc/100))
-        perc_index.append((last_index+1, index))
-        last_index = index 
-    perc_index.append((last_index+1, len(go_freqs)-1))   
-    print(perc_index)
-
-    total_len = 0
-    go_mega_clusters = []
-    for start, end in perc_index:
-        sub_gos = go_freqs[start:end+1]
-        print(len(sub_gos))
-        total_len += len(sub_gos)
-        go_mega_clusters.append(sub_gos)
-    print(total_len)
-
-    go_sets = []
-    for index in range(len(go_mega_clusters)):
-        clust = go_mega_clusters[index]
-        print('Go Cluster', index, 'with', len(clust), 'GOs')
-        freq_vec = [y for x,y in clust]
-        print('\tMean samples:', np.mean(freq_vec), 'Min:', np.min(freq_vec), 'Max:', np.max(freq_vec))
-        go_sets.append([x for x,y in clust])
-
-    return go_sets
-
-
+from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
+    load_labels_from_dir, config)
+from go_clustering import cluster_go_by_levels_and_freq
 
 def make_dataset(dirname, protein_list, go_set):
     print('Loading features')
@@ -242,8 +196,9 @@ def validate_model(nodes):
     val_features = x_to_np(val_features)
     val_x = [x for name, x in val_features]
 
-    results = []
-    for annot_model, targets in nodes:
+    roc_auc_scores = []
+    for mod_name, data in nodes.items():
+        annot_model, targets = data
         print('Creating go label one hot encoding')
         val_y = create_labels_matrix(labels, val_protein_list, targets)
         print('\t', val_y.shape)
@@ -252,21 +207,60 @@ def validate_model(nodes):
         val_y_pred = annot_model.predict(val_x)
         roc_auc_score = metrics.roc_auc_score(val_y, val_y_pred)
         print(roc_auc_score)
-        results.append(roc_auc_score)
+        roc_auc_scores.append(roc_auc_score)
 
-    return results
+    return np.mean(roc_auc_scores)
 
 if __name__ == '__main__':
+    print(sys.argv)
+    experiment_comment = sys.argv[1]
+    timestamp = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
+    experiment_name = timestamp+'_'+experiment_comment.replace(" ","-")
     print('Loading train/test ids')
     traintest_ids = open('input/traintest/ids.txt', 'r').read().split('\n')
     print(len(traintest_ids), 'proteins')
     print('Loading labels')
-    go_labels, go_annotations = load_labels_from_dir('input/traintest', ids_allowed=traintest_ids)
-    go_lists = cluster_gos_by_freq_percentiles(go_labels)
+    go_labels, go_annotations = load_labels_from_dir('input/traintest', 
+        ids_allowed=traintest_ids)
+    go_graph = load_go_graph()
+    percentiles = [40, 70, 90]
+    go_lists = cluster_go_by_levels_and_freq(go_annotations, len(traintest_ids), 
+        percentiles, go_graph, config['min_annotations'])
 
-    test_go_set = go_lists[-1][-6:]
+    '''last_cluster = go_lists[list(go_lists.keys())[-1]]
+    test_go_set = last_cluster[-6:]
+    print(test_go_set)'''
 
-    print(test_go_set)
-    annot_model, stats = train_node(test_go_set, go_annotations)
-    nodes = [(annot_model, test_go_set)]
-    roc_auc_scores = validate_model(nodes)
+    params = {
+        'go_frequency_percentiles': percentiles,
+        'n_traintest_proteins': len(traintest_ids)
+    }
+    for key, val in config.items():
+        params[key] = val
+
+    experiment_json = {
+        'id': timestamp,
+        'comment': experiment_comment,
+        'params': params,
+        'classifiers': {},
+        'go_clusters': go_lists
+    }
+
+    models = {
+
+    }
+    '''
+    for cluster_name, cluster_gos in [('test_largest', test_go_set)]:
+        annot_model, stats = train_node(cluster_gos, go_annotations)
+        experiment_json['classifiers'][cluster_name] = {
+            'results': stats,
+            'labels': cluster_gos
+        }
+        models[cluster_name] = (annot_model, cluster_gos)
+
+    experiment_json['validation'] = validate_model(models)
+    '''
+    if not os.path.exists('experiments'):
+        os.mkdir('experiments')
+    
+    json.dump(experiment_json, open('experiments/'+experiment_name+'.json', 'w'), indent=4)

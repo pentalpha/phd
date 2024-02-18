@@ -6,28 +6,30 @@ from tqdm import tqdm
 import yaml
 import numpy as np
 
-config = yaml.safe_load(open("config.yml", "r"))
-goa_parsed = 'databases/goa_parsed.tsv.gz'
-goa_parsed_expanded = 'databases/goa_parsed_expanded.tsv.gz'
-goa_parsed_frequent = 'databases/goa_parsed_frequent.tsv.gz'
-go_not_use_path = 'databases/gocheck_do_not_annotate.json'
-go_basic_path = "databases/go-basic.obo"
+proj_dir = path.dirname(path.dirname(__file__))
+
+config = yaml.safe_load(open(proj_dir+"/config.yml", "r"))
+goa_parsed = proj_dir+"/databases/goa_parsed.tsv.gz"
+goa_parsed_expanded = proj_dir+"/databases/goa_parsed_expanded.tsv.gz"
+goa_parsed_frequent = proj_dir+"/databases/goa_parsed_frequent.tsv.gz"
+go_not_use_path = proj_dir+"/databases/gocheck_do_not_annotate.json"
+go_basic_path = proj_dir+"/databases/go-basic.obo"
 
 #quickgo_expanded_path = "input/quickgo_expanded.tsv.gz"
-input_annotation_path = 'input/annotation.tsv'
-input_features_path = 'input/features.npy'
-input_features_ids_path = 'input/ids.txt'
-input_features_ids_traintest_path = 'input/ids_traintest.txt'
-input_features_ids_validation_path = 'input/ids_validation.txt'
-input_labels_path = 'input/labels.tsv'
-taxon_features = 'input/features/taxon_one_hot.tsv.gz'
-taxon_features_ids = 'input/features/taxon_one_hot_ids.txt'
-fairesm_features = 'input/features/fairesm_*'
+input_annotation_path = proj_dir+'/input/annotation.tsv'
+input_features_path = proj_dir+'/input/features.npy'
+input_features_ids_path = proj_dir+'/input/ids.txt'
+input_features_ids_traintest_path = proj_dir+'/input/ids_traintest.txt'
+input_features_ids_validation_path = proj_dir+'/input/ids_validation.txt'
+input_labels_path = proj_dir+'/input/labels.tsv'
+taxon_features = proj_dir+'/input/features/taxon_one_hot.tsv.gz'
+taxon_features_ids = proj_dir+'/input/features/taxon_one_hot_ids.txt'
+fairesm_features = proj_dir+'/input/features/fairesm_*'
 
 features_esm_prefix = 'feature_esm_*.tsv.gz'
 features_taxon_prefix = 'feature_taxa.tsv.gz'
-features_taxon_path = 'input/'+features_taxon_prefix
-features_esm_base_path = 'input/'+features_esm_prefix
+features_taxon_path = proj_dir+'/input/'+features_taxon_prefix
+features_esm_base_path = proj_dir+'/input/'+features_esm_prefix
 
 def run_command(cmd_vec, stdin="", no_output=True):
     '''Executa um comando no shell e retorna a saída (stdout) dele.'''
