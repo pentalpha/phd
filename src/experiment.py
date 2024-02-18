@@ -3,6 +3,8 @@ import sys
 import json
 import os
 
+from tqdm import tqdm
+
 from gene_ontology import load_go_graph
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
@@ -249,17 +251,20 @@ if __name__ == '__main__':
     models = {
 
     }
-    '''
-    for cluster_name, cluster_gos in [('test_largest', test_go_set)]:
+
+    cluster_bar = tqdm(total=len(go_lists.keys()))
+    for cluster_name, cluster_gos in go_lists.items():
         annot_model, stats = train_node(cluster_gos, go_annotations)
         experiment_json['classifiers'][cluster_name] = {
             'results': stats,
             'labels': cluster_gos
         }
         models[cluster_name] = (annot_model, cluster_gos)
+        cluster_bar.update(1)
+    cluster_bar.close()
 
-    experiment_json['validation'] = validate_model(models)
-    '''
+    #experiment_json['validation'] = validate_model(models)
+    
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
     
