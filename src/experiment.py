@@ -164,7 +164,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
     roc_auc_score = metrics.roc_auc_score(test_y, y_pred)
     acc = np.mean(keras.metrics.binary_accuracy(test_y, y_pred).numpy())
 
-    return model, {'ROC AUC': roc_auc_score, 'Accuracy': acc}
+    return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc)}
 
 def train_node(test_go_set, go_annotations, max_proteins=10000):
     all_proteins = set()
@@ -175,8 +175,8 @@ def train_node(test_go_set, go_annotations, max_proteins=10000):
     
     print(len(all_proteins), 'proteins')
     protein_list = sorted(all_proteins)
-    if len(protein_list) > max_proteins:
-        protein_list = sample(protein_list, 10000)
+    '''if len(protein_list) > max_proteins:
+        protein_list = sample(protein_list, 10000)'''
 
     print('Loading features')
     features, local_labels = make_dataset('input/traintest', protein_list, test_go_set)
