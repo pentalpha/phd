@@ -161,19 +161,19 @@ def load_features(feature_file_path: str, subset: list, converter):
         line_i += 1
 
     bar = tqdm(total=len(subset))
-    if not feature_file_path in features_cache:
-        print('Loading', feature_file_path)
-        feature_file = open_file(feature_file_path)
-        lines = []
-        for rawline in feature_file:
-            cols = rawline.rstrip('\n').split('\t')
-            vals = [converter(x) for x in cols]
-            lines.append(vals)
-        features_cache[feature_file_path] = lines
-        print('Loaded', feature_file_path)
-        feature_file.close()
+    '''if not feature_file_path in features_cache:'''
+    print('Loading', feature_file_path)
+    feature_file = open_file(feature_file_path)
+    lines = []
+    for rawline in feature_file:
+        cols = rawline.rstrip('\n').split('\t')
+        vals = [converter(x) for x in cols]
+        lines.append(vals)
+    #features_cache[feature_file_path] = lines
+    print('Loaded', feature_file_path)
+    feature_file.close()
 
-    lines = features_cache[feature_file_path]
+    #lines = features_cache[feature_file_path]
     line_i = 0
     for vals in lines:
         current_id = ids[line_i]

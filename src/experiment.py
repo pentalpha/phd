@@ -2,7 +2,7 @@ import datetime
 import sys
 import json
 import os
-
+from multiprocessing import Pool
 from tqdm import tqdm
 
 from gene_ontology import load_go_graph
@@ -167,7 +167,9 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
 
     return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc)}
 
-def train_node(test_go_set, go_annotations, max_proteins=10000):
+def train_node(params, max_proteins=3000):
+    test_go_set = params['test_go_set']
+    go_annotations = params['go_annotations']
     all_proteins = set()
     for go in test_go_set:
         annots = go_annotations[go]
@@ -176,8 +178,8 @@ def train_node(test_go_set, go_annotations, max_proteins=10000):
     
     print(len(all_proteins), 'proteins')
     protein_list = sorted(all_proteins)
-    '''if len(protein_list) > max_proteins:
-        protein_list = sample(protein_list, 10000)'''
+    if len(protein_list) > max_proteins:
+        protein_list = sample(protein_list, max_proteins)
 
     print('Loading features')
     features, local_labels = make_dataset('input/traintest', protein_list, test_go_set)
@@ -249,20 +251,29 @@ if __name__ == '__main__':
         'go_clusters': go_lists
     }
 
+    clusters = list(go_lists.items())
+    params = []
+    for cluster_name, cluster_gos in clusters:
+        params.append({
+            'test_go_set': cluster_gos,
+            'go_annotations': go_annotations
+        })
+    
+    with Pool(config['training_processes']) as pool:
+        models_and_stats = pool.map(train_node, params)
+    
     models = {
 
     }
-
-    cluster_bar = tqdm(total=len(go_lists.keys()))
-    for cluster_name, cluster_gos in go_lists.items():
-        annot_model, stats = train_node(cluster_gos, go_annotations)
+    for i in range(len(clusters)):
+        cluster_name, cluster_gos = clusters[i]
+        annot_model, stats = models_and_stats[i]
+        
         experiment_json['classifiers'][cluster_name] = {
             'results': stats,
             'labels': cluster_gos
         }
         models[cluster_name] = (annot_model, cluster_gos)
-        cluster_bar.update(1)
-    cluster_bar.close()
 
     #experiment_json['validation'] = validate_model(models)
     
