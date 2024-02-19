@@ -30,6 +30,7 @@ from random import sample
 from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
     load_labels_from_dir, config)
 from go_clustering import cluster_go_by_levels_and_freq
+from plotting import plot_experiment
 
 def make_dataset(dirname, protein_list, go_set):
     print('Loading features')
@@ -268,4 +269,6 @@ if __name__ == '__main__':
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
     
-    json.dump(experiment_json, open('experiments/'+experiment_name+'.json', 'w'), indent=4)
+    json_path = 'experiments/'+experiment_name+'.json'
+    json.dump(experiment_json, open(json_path, 'w'), indent=4)
+    plot_experiment(json_path)

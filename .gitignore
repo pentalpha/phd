@@ -10,3 +10,5 @@ down_input.sh
 .spyproject/*
 *.ini
 *.bak
+experiments/*
+down_experiments.sh
