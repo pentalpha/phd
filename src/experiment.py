@@ -158,7 +158,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
     x_test_vec = [x for name, x in test_x]
     history = model.fit([x for name, x in train_x], train_y,
         validation_data=(x_test_vec, test_y),
-        epochs=30, batch_size=256,
+        epochs=10, batch_size=256,
         callbacks=[lr_callback])
     
     y_pred = model.predict(x_test_vec)
@@ -167,7 +167,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
 
     return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc)}
 
-def train_node(params, max_proteins=3000):
+def train_node(params, max_proteins=2000):
     test_go_set = params['test_go_set']
     go_annotations = params['go_annotations']
     all_proteins = set()
@@ -191,7 +191,7 @@ def train_node(params, max_proteins=3000):
 
     return annot_model, stats
 
-def validate_model(nodes):
+def validate_model(nodes, experiment_dir):
     print('Loading validation')
     val_protein_list = open('input/validation/ids.txt', 'r').read().split('\n')
     print('Loading features')
@@ -202,8 +202,14 @@ def validate_model(nodes):
     val_x = [x for name, x in val_features]
 
     roc_auc_scores = []
+    all_targets = []
+    all_probas = [[] for _ in range(len(val_protein_list))]
     for mod_name, data in nodes.items():
+        val_tsv = experiment_dir+'/'+mod_name+'.val.tsv'
+        output = open(val_tsv, 'w')
         annot_model, targets = data
+        all_targets += targets
+        output.write('protein\ttaxid\t'+ '\t'.join(targets)+'\n')
         print('Creating go label one hot encoding')
         val_y = create_labels_matrix(labels, val_protein_list, targets)
         print('\t', val_y.shape)
@@ -213,6 +219,21 @@ def validate_model(nodes):
         roc_auc_score = metrics.roc_auc_score(val_y, val_y_pred)
         print(roc_auc_score)
         roc_auc_scores.append(roc_auc_score)
+
+        for i in range(len(val_protein_list)):
+            predicted_probs = [x for x in val_y_pred[i]]
+            predicted_probs_str = [str(x) for x in predicted_probs]
+            all_probas[i] += predicted_probs
+            output.write(val_protein_list[i]+'\t' + '\t'.join(predicted_probs_str)+'\n')
+        output.close()
+    
+    big_table_path = experiment_dir+'/validation.tsv'
+    output = open(big_table_path, 'w')
+    output.write('protein\ttaxid\t'+ '\t'.join(all_targets)+'\n')
+    for i in range(len(val_protein_list)):
+        predicted_probs_str = [str(x) for x in all_probas[i]]
+        output.write(val_protein_list[i]+'\t' + '\t'.join(predicted_probs_str)+'\n')
+    output.close()
 
     return np.mean(roc_auc_scores)
 
@@ -251,7 +272,7 @@ if __name__ == '__main__':
         'go_clusters': go_lists
     }
 
-    clusters = list(go_lists.items())
+    clusters = list(go_lists.items())[:10]
     params = []
     for cluster_name, cluster_gos in clusters:
         params.append({
@@ -274,12 +295,15 @@ if __name__ == '__main__':
             'labels': cluster_gos
         }
         models[cluster_name] = (annot_model, cluster_gos)
-
-    #experiment_json['validation'] = validate_model(models)
     
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
+
+    experiment_dir = 'experiments/'+experiment_name
+    if not os.path.exists(experiment_dir):
+        os.mkdir(experiment_dir)
+    experiment_json['validation'] = validate_model(models, experiment_dir)
     
-    json_path = 'experiments/'+experiment_name+'.json'
+    json_path = experiment_dir+'.json'
     json.dump(experiment_json, open(json_path, 'w'), indent=4)
     plot_experiment(json_path)
