@@ -1,0 +1,55 @@
+uncorrected
+        hamming_loss 0.008509502472187886
+        precision_score 0.6331972409460334
+        recall_score 0.7799700925514287
+        roc_auc_ma_bin 0.8265972002269117
+
+child_parent no sorting
+        hamming_loss 0.005873406061759901
+        precision_score 0.6859493787353176
+        recall_score 0.7574888897785963
+        roc_auc_ma_bin 0.8096853886504013
+child_parent (more parents first)
+        hamming_loss 0.005375891279601657
+        precision_score 0.7216562957464435
+        recall_score 0.737655110656262
+        roc_auc_ma_bin 0.809913716478329
+child_parent (more parents last)
+        hamming_loss 0.007112316648477462
+        precision_score 0.6452240785418498
+        accuracy_score 0.0588380716934487
+        recall_score 0.7797947845076755
+        roc_auc_ma_bin 0.8183393783673903
+
+child_max_values (less children first)
+        hamming_loss 0.016443116674385864
+        precision_score 0.49112511621924115
+        recall_score 0.8340239578032488
+        roc_auc_ma_bin 0.8301630619896129
+child_max_values no sorting
+        hamming_loss 0.016443116674385864
+        precision_score 0.49112511621924115
+        recall_score 0.8340239578032488
+        roc_auc_ma_bin 0.8301630619896129
+
+
+Top 1500 GO IDs:
+Calculating metrics
+uncorrected
+        hamming_loss 0.007869608446973845
+        precision_score 0.6336136701251645
+        accuracy_score 0.013226205191594561
+        recall_score 0.7783818999284169
+        roc_auc_ma_bin 0.8189985836357823
+child_parent
+        hamming_loss 0.00446716536663683
+        precision_score 0.7276047310071758
+        accuracy_score 0.09004944375772558
+        recall_score 0.7353095571392212
+        roc_auc_ma_bin 0.7923904725312761
+child_max_values
+        hamming_loss 0.015086225601843362
+        precision_score 0.49173514147979835
+        accuracy_score 0.014091470951792336
+        recall_score 0.8319786680373952
+        roc_auc_ma_bin 0.8215485295650203

@@ -10,5 +10,7 @@ down_input.sh
 .spyproject/*
 *.ini
 *.bak
-experiments/*
+experiments/*.tsv
+experiments/*.png
 down_experiments.sh
+experiments/.spyproject
