@@ -1,3 +1,7 @@
+import json
+from multiprocessing import Pool
+import os
+import sys
 import pandas as pd
 from tqdm import tqdm
 import networkx as nx
@@ -5,37 +9,18 @@ import numpy as np
 from gene_ontology import load_go_graph
 from sklearn import metrics
 
-def annotations_dict_to_df(ann: dict, goids: list):
+from util import chunks
+
+def annotations_dict_to_df(ann: dict, goids: list, proteinids: list):
     lines = []
-    for proteinid, goprobs in ann.items():
-        line = {goids[i]: goprobs[i] for i in range(len(goids))}
+    for proteinid in proteinids:
+        goprobs = ann[proteinid]
+        line = {goids[i]: goprobs[i] 
+            for i in range(len(goids))}
         line['id'] = proteinid
         lines.append(line)
     return pd.DataFrame(lines)
 
-validation_df_path = "experiments/validation_full.tsv"
-validation_df = pd.read_csv(validation_df_path, sep='\t', index_col=False)
-all_goids = [col for col in validation_df.columns if col.startswith('GO:')]
-go_graph = load_go_graph()
-
-labels_validation_path = 'input/validation/labels.tsv'
-annotations_true = {}
-for rawline in open(labels_validation_path, 'r'):
-    cells = rawline.rstrip('\n').split('\t')
-    proteinid = cells[0]+'\t'+cells[1]
-    annotated = cells[2].split(',')
-    probs = [1.0 if goid in annotated else 0.0 for goid in all_goids]
-    annotations_true[proteinid] = probs
-
-true_probs = annotations_dict_to_df(annotations_true, all_goids)
-goid_freqs = [(goid, true_probs[goid].sum()) for goid in all_goids]
-goid_freqs.sort(key=lambda tp: tp[1])
-top_600_goids = [goid for goid, freq in goid_freqs[-1500:]]
-
-true_probs_values = true_probs[top_600_goids]
-true_probs_binary = (true_probs_values == 1.0).astype(int)
-
-#%%
 def uncorrected(df: pd.DataFrame, goidsubset):
     annotations = {}
     print(df.head())
@@ -73,7 +58,33 @@ def children_parent_avg(term, parent_probs, children_probs):
     
     return total / n
 
-def correct_by_child_parent_avg(df: pd.DataFrame, goidsubset, go_graph: nx.MultiDiGraph):
+def correct_proteins(args_dict):
+    proteinids = args_dict['proteinids']
+    children_dict = args_dict['children_dict']
+    parent_dict = args_dict['parent_dict']
+    goids_by_n_parents = args_dict['goids_by_n_parents']
+    goidsubset = args_dict['goidsubset']
+    df = args_dict['df']
+    go_graph = args_dict['go_graph']
+
+    annotations = {}
+    bar = tqdm(total=len(proteinids))
+    for index, row in tqdm(df.iterrows()):
+        proteinid = row['protein']+'\t'+row['taxid']
+        if proteinid in proteinids:
+            local_probs = {goid: row[goid] for goid in goidsubset}
+            for goid in goids_by_n_parents:
+                children_probs = [local_probs[c] for c in children_dict[goid]]
+                parent_probs = [local_probs[p] for p in parent_dict[goid]]
+                
+                new_prob = children_parent_avg(row[goid], parent_probs, children_probs)
+                local_probs[goid] = new_prob
+            annotations[proteinid] = [local_probs[x] for x in goidsubset]
+            bar.update(1)
+    bar.close()
+    return annotations
+
+def correct_by_child_parent_avg(df: pd.DataFrame, goidsubset, go_graph: nx.MultiDiGraph, proteinids):
     annotations = {}
     print(df.head())
     print(df.shape)
@@ -83,18 +94,30 @@ def correct_by_child_parent_avg(df: pd.DataFrame, goidsubset, go_graph: nx.Multi
     parent_dict = {goid: find_parents(goid, goidsubset, go_graph)
                      for goid in tqdm(goidsubset)}
     goids_by_n_parents = sorted(goidsubset, key= lambda x: len(parent_dict[x]), reverse=True)
-    for index, row in tqdm(df.iterrows()):
-        proteinid = row['protein']+'\t'+row['taxid']
-        local_probs = {goid: row[goid] for goid in goidsubset}
-        for goid in goids_by_n_parents:
-            children_probs = [local_probs[c] for c in children_dict[goid]]
-            parent_probs = [local_probs[p] for p in parent_dict[goid]]
-            
-            new_prob = children_parent_avg(row[goid], parent_probs, children_probs)
-            local_probs[goid] = new_prob
-        annotations[proteinid] = [local_probs[x] for x in goidsubset]
-    
-    return annotations, children_dict, parent_dict
+
+    protid_chunks = chunks(proteinids, 4000)
+    arglist = []
+    for protid_chunk in protid_chunks:
+        arglist.append({
+            'proteinids': protid_chunk,
+            'children_dict': children_dict,
+            'parent_dict': parent_dict,
+            'goids_by_n_parents': goids_by_n_parents,
+            'goidsubset': goidsubset,
+            'df': df,
+            'go_graph': go_graph
+        })
+
+    with Pool(4) as pool:
+        annotation_dicts = pool.map(correct_proteins, arglist)
+
+        annotations = {}
+        for d in annotation_dicts:
+            for prot, annots in d.items():
+                annotations[prot] = annots
+
+        return annotations, children_dict, parent_dict
+    return None
 
 def correct_by_max_children(df: pd.DataFrame, goidsubset, go_graph: nx.MultiDiGraph):
     annotations = {}
@@ -115,38 +138,133 @@ def correct_by_max_children(df: pd.DataFrame, goidsubset, go_graph: nx.MultiDiGr
     
     return annotations, children_dict
 
-#%%
-annotations0 = uncorrected(validation_df, top_600_goids)
-uncorrected = annotations_dict_to_df(annotations0, top_600_goids)
-uncorrected_values = uncorrected[top_600_goids]
-#%%
-annotations1, children_dict, parent_dict = correct_by_child_parent_avg(
-    validation_df, top_600_goids, go_graph)
-child_parent = annotations_dict_to_df(annotations1, top_600_goids)
-child_parent_values = child_parent[top_600_goids]
-#%%
-annotations2, children_dict = correct_by_max_children(
-    validation_df, top_600_goids, go_graph)
-child_max = annotations_dict_to_df(annotations2, top_600_goids)
-child_max_values = child_max[top_600_goids]
-        
-#%%
-print('Calculating metrics')
-predictions = [('uncorrected', uncorrected_values), ('child_parent', child_parent_values),
-               ('child_max_values', child_max_values)]
-for name, values in predictions:
-    print(name)
-    with_th_pred = (values > 0.6).astype(int)
-    keep = []
-    for goid in top_600_goids:
-        freq = with_th_pred[goid].sum()
-        if freq >= 1:
-            keep.append(goid)
-    with_th_pred_f = with_th_pred[keep]
-    true_probs_binary_f = true_probs_binary[keep]
-    print('\thamming_loss', metrics.hamming_loss(true_probs_binary_f, with_th_pred_f))
-    print('\tprecision_score', metrics.precision_score(true_probs_binary_f, with_th_pred_f, average='weighted'))
-    print('\taccuracy_score', metrics.accuracy_score(true_probs_binary_f, with_th_pred_f))
-    print('\trecall_score', metrics.recall_score(true_probs_binary_f, with_th_pred_f, average='weighted'))
-    print('\troc_auc_ma_bin', metrics.roc_auc_score(true_probs_binary_f, with_th_pred_f, average='macro'))
+def post_process_and_validate(experiment_json_path, validation_df_path):
     
+    labels_validation_path = 'input/validation/labels.tsv'
+    print('Loading results')
+    experiment = json.load(open(experiment_json_path, 'r'))
+    validation_df = pd.read_csv(validation_df_path, sep='\t', index_col=False)
+    all_goids = [col for col in validation_df.columns if col.startswith('GO:')]
+    go_graph = load_go_graph()
+    validated_proteinids = []
+    for index, row in validation_df.iterrows():
+        validated_proteinids.append(row['protein']+'\t'+row['taxid'])
+    validated_proteinids = validated_proteinids
+    print(len(validated_proteinids))
+    print('Loading true labels')
+    annotations_true = {}
+    proteinids = []
+    not_predicted = 0
+    for rawline in open(labels_validation_path, 'r'):
+        cells = rawline.rstrip('\n').split('\t')
+        proteinid = cells[0]+'\t'+cells[1]
+        if proteinid in validated_proteinids:
+            proteinids.append(proteinid)
+            annotated = cells[2].split(',')
+            probs = [1.0 if goid in annotated else 0.0 for goid in all_goids]
+            annotations_true[proteinid] = probs
+        else:
+            not_predicted += 1
+    
+    print(len(proteinids), 'validation proteins predictions')
+    print(not_predicted, 'validation proteins not in predictions table')
+
+    true_probs = annotations_dict_to_df(annotations_true, all_goids, proteinids)
+    goid_freqs = [(goid, true_probs[goid].sum()) for goid in all_goids]
+    goid_freqs.sort(key=lambda tp: tp[1])
+    goids = [goid for goid, freq in goid_freqs]
+    true_probs_values = true_probs[goids]
+    true_probs_binary = (true_probs_values == 1.0).astype(int)
+
+    annotated_goids = []
+    for col in goids:
+        if sum(true_probs_binary[col]) > 0:
+            annotated_goids.append(col)
+    target_sets = [('all', annotated_goids)]
+    for clustername, targetlist in experiment['go_clusters'].items():
+        targets_with_ann = [t for t in targetlist if t in annotated_goids]
+        target_sets.append((clustername, targets_with_ann))
+    
+    corrected_path = validation_df_path.replace('.tsv', '.corrected.tsv')
+    if not os.path.exists(corrected_path):
+        print('Correcting probabilities by avg(node,min(parents),max(children)) method')
+        annotations1, children_dict, parent_dict = correct_by_child_parent_avg(
+            validation_df, annotated_goids, go_graph, proteinids)
+        output = open(corrected_path, 'w')
+        output.write('protein\ttaxid\t'+ '\t'.join(annotated_goids)+'\n')
+        for protid in proteinids:
+            predicted_probs_str = [str(x) for x in annotations1[protid]]
+            output.write(protid+'\t' + '\t'.join(predicted_probs_str)+'\n')
+        output.close()
+        #validation_corrected = annotations_dict_to_df(annotations1, annotated_goids, proteinids)
+    validation_corrected = pd.read_csv(corrected_path, sep='\t', index_col=False)
+    
+    validation_results = {}
+
+    print('Calculating metrics')
+    n_validated = 0
+    for clustername, targetlist in tqdm(target_sets):
+        print(clustername, len(targetlist), targetlist[0], targetlist[-1])
+        if clustername == 'all':
+            short_cluster_name = clustername
+        else:
+            short_cluster_name = clustername.split('_')[0] + '_' + clustername.split('_')[1]
+        print('filtering y_true')
+        indexes_with_annot = set()
+        y_true_vec = []
+        i = 0
+        for index, row in true_probs_binary.iterrows():
+            vec = [float(row[t]) for t in targetlist]
+            #if sum(vec) > 0:
+            y_true_vec.append(np.array(vec))
+            indexes_with_annot.add(i)
+            i += 1
+        y_true = np.asarray(y_true_vec)
+        #print(len(indexes_with_annot), 'proteins with annotation in cluster')
+        print('filtering y_pred')
+        i = 0
+        y_pred = []
+        for index, row in validation_corrected.iterrows():
+            #if i in indexes_with_annot:
+            vec = [1.0 if row[t] > 0.5 else 0.0 for t in targetlist]
+            y_pred.append(np.array(vec))
+            i += 1
+        y_pred = np.asarray(y_pred)
+        #print(with_th_pred)
+        #print('\n')
+        #print(true_probs_binary_f)
+
+        roc_auc_ma_bin = metrics.roc_auc_score(y_true_vec, y_pred, 
+            average='macro')
+        hamming_loss = metrics.hamming_loss(y_true, y_pred)
+        y_true_argmax = np.argmax(y_true, axis = 1)
+        y_pred_argmax = np.argmax(y_pred, axis = 1)
+        precision_score = metrics.precision_score(y_true_argmax, y_pred_argmax, 
+            average='weighted')
+        recall_score = metrics.recall_score(y_true_argmax, y_pred_argmax, 
+            average='weighted')
+        accuracy_score = metrics.accuracy_score(y_true_argmax, y_pred_argmax)
+
+        validation_results[short_cluster_name] = {
+            'hamming_loss': hamming_loss,
+            'precision_score': precision_score,
+            'recall_score': recall_score,
+            'accuracy_score': accuracy_score,
+            'roc_auc_ma_bin': roc_auc_ma_bin
+        }
+
+        print(short_cluster_name, validation_results[short_cluster_name])
+        
+    print(n_validated, 'validated of', len(target_sets)-1)
+    experiment['validation'] = validation_results
+    experiment['validation_all_goids'] = goids
+    validated_path = experiment_json_path.rstrip('.json')+'.validated.json'
+    json.dump(experiment, open(validated_path, 'w'), indent=4)
+
+    return validated_path
+
+if __name__ == '__main__':
+    experiment_json_path = sys.argv[1]
+    validation_df_path = sys.argv[2]
+
+    validated_json = post_process_and_validate(experiment_json_path, validation_df_path)

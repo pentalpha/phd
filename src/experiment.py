@@ -6,6 +6,7 @@ from multiprocessing import Pool
 from tqdm import tqdm
 
 from gene_ontology import load_go_graph
+from post_processing import post_process_and_validate
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 import numpy as np
@@ -28,7 +29,7 @@ from skmultilearn.model_selection import iterative_train_test_split
 from random import sample
 
 from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
-    load_labels_from_dir, config)
+    load_labels_from_dir, config, run_command)
 from go_clustering import cluster_go_by_levels_and_freq
 from plotting import plot_experiment
 
@@ -191,7 +192,7 @@ def train_node(params, max_proteins=2000):
 
     return annot_model, stats
 
-def validate_model(nodes, experiment_dir):
+def predict_with_model(nodes, experiment_dir):
     print('Loading validation')
     val_protein_list = open('input/validation/ids.txt', 'r').read().split('\n')
     print('Loading features')
@@ -216,9 +217,9 @@ def validate_model(nodes, experiment_dir):
     
         print('Validating')
         val_y_pred = annot_model.predict(val_x)
-        roc_auc_score = metrics.roc_auc_score(val_y, val_y_pred)
-        print(roc_auc_score)
-        roc_auc_scores.append(roc_auc_score)
+        #roc_auc_score = metrics.roc_auc_score(val_y, val_y_pred)
+        #print(roc_auc_score)
+        #roc_auc_scores.append(roc_auc_score)
 
         for i in range(len(val_protein_list)):
             predicted_probs = [x for x in val_y_pred[i]]
@@ -235,7 +236,7 @@ def validate_model(nodes, experiment_dir):
         output.write(val_protein_list[i]+'\t' + '\t'.join(predicted_probs_str)+'\n')
     output.close()
 
-    return np.mean(roc_auc_scores)
+    return big_table_path
 
 if __name__ == '__main__':
     print(sys.argv)
@@ -302,8 +303,12 @@ if __name__ == '__main__':
     experiment_dir = 'experiments/'+experiment_name
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
-    experiment_json['validation'] = validate_model(models, experiment_dir)
+    big_table_path = predict_with_model(models, experiment_dir)
     
     json_path = experiment_dir+'.json'
     json.dump(experiment_json, open(json_path, 'w'), indent=4)
-    plot_experiment(json_path)
+
+    json_path_val = post_process_and_validate(json_path, big_table_path)
+    run_command(['mv', json_path_val, json_path])
+    
+    plot_experiment(json_path_val)

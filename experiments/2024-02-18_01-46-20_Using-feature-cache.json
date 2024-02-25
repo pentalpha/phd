@@ -1,0 +1,27 @@
+{
+    "id": "2024-02-18_01-46-20",
+    "comment": "Using feature cache",
+    "params": {
+        "go_frequency_percentiles": [
+            40,
+            70,
+            90
+        ],
+        "n_traintest_proteins": 91472,
+        "min_annotations": 30,
+        "max_taxons": 70,
+        "go_annotation_raw": "/data/home/pitagoras/data/go/goa_uniprot_all.gaf.gz",
+        "esm_libraries": "/storages/macaiba/pitagoras/vol/data/esm_embedding",
+        "esm_processes": 30,
+        "esm_models_to_use": [
+            30,
+            33
+        ],
+        "testing_perc": 0.25,
+        "validation_perc": 0.15
+    },
+    "classifiers": {
+        "Level-1_Freq-33-189_N-7": {
+            "results": {
+                "ROC AUC": 0.9539894648998802,
+                "Accuracy": 
