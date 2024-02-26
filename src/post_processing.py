@@ -203,6 +203,7 @@ def post_process_and_validate(experiment_json_path, validation_df_path):
 
     print('Calculating metrics')
     n_validated = 0
+    individual_metrics = []
     for clustername, targetlist in tqdm(target_sets):
         print(clustername, len(targetlist), targetlist[0], targetlist[-1])
         if clustername == 'all':
@@ -253,11 +254,29 @@ def post_process_and_validate(experiment_json_path, validation_df_path):
             'roc_auc_ma_bin': roc_auc_ma_bin
         }
 
+        if clustername != 'all':
+            individual_metrics.append((validation_results[short_cluster_name], len(targetlist)))
+
         print(short_cluster_name, validation_results[short_cluster_name])
         
     print(n_validated, 'validated of', len(target_sets)-1)
-    experiment['validation'] = validation_results
     experiment['validation_all_goids'] = goids
+    experiment['validation'] = validation_results
+    w_sum = sum([w for m, w in individual_metrics])
+    experiment['validation_mean_metrics'] = {
+        'hamming_loss': sum([x['hamming_loss']*w for x, w in individual_metrics]) / w_sum,
+        'precision_score': sum([x['precision_score']*w for x, w in individual_metrics]) / w_sum,
+        'recall_score': sum([x['recall_score']*w for x, w in individual_metrics]) / w_sum,
+        'accuracy_score': sum([x['accuracy_score']*w for x, w in individual_metrics]) / w_sum,
+        'roc_auc_ma_bin': sum([x['roc_auc_ma_bin']*w for x, w in individual_metrics]) / w_sum
+    }
+    experiment['validation_std'] = {
+        'hamming_loss': np.std([x['hamming_loss'] for x, w in individual_metrics]),
+        'precision_score':  np.std([x['precision_score'] for x, w in individual_metrics]),
+        'recall_score':  np.std([x['recall_score'] for x, w in individual_metrics]),
+        'accuracy_score':  np.std([x['accuracy_score'] for x, w in individual_metrics]),
+        'roc_auc_ma_bin':  np.std([x['roc_auc_ma_bin'] for x, w in individual_metrics])
+    }
     validated_path = experiment_json_path.rstrip('.json')+'.validated.json'
     json.dump(experiment, open(validated_path, 'w'), indent=4)
 

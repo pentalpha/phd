@@ -5549,5 +5549,19 @@
         "GO:0097159",
         "GO:0005515",
         "GO:0003824"
-    ]
+    ],
+    "validation_mean_metrics": {
+        "hamming_loss": 0.008274310153209626,
+        "precision_score": 0.8914033071722359,
+        "recall_score": 0.7860427020940238,
+        "accuracy_score": 0.7860427020940238,
+        "roc_auc_ma_bin": 0.7564239352820566
+    },
+    "validation_std": {
+        "hamming_loss": 0.024140356556515877,
+        "precision_score": 0.08665179260926499,
+        "recall_score": 0.15072959665207838,
+        "accuracy_score": 0.15072959665207838,
+        "roc_auc_ma_bin": 0.11394475357389013
+    }
 }
