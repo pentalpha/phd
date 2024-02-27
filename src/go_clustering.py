@@ -64,7 +64,8 @@ def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_gr
     go_levels_2 = {}
     go_n_annotations = {}
     all_goids = list(go_annotations.keys())
-    for goid in tqdm(all_goids):
+    valid_goids = [x for x in all_goids if x in go_graph]
+    for goid in tqdm(valid_goids):
         n_annots = len(go_annotations[goid])
         if n_annots >= min_annots and goid != root:
             simple_paths = nx.all_simple_paths(go_graph, source=goid, target=root)

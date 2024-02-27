@@ -149,6 +149,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
             lr = lr * 0.5
         return lr
     lr_callback = LearningRateScheduler(lr_schedule, verbose=1)
+    es = EarlyStopping(monitor='val_auc', patience=6)
 
     print("Compiling")
     model.compile(optimizer=Adam(learning_rate=0.0003),
@@ -159,8 +160,8 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
     x_test_vec = [x for name, x in test_x]
     history = model.fit([x for name, x in train_x], train_y,
         validation_data=(x_test_vec, test_y),
-        epochs=10, batch_size=256,
-        callbacks=[lr_callback])
+        epochs=24, batch_size=256,
+        callbacks=[lr_callback, es])
     
     y_pred = model.predict(x_test_vec)
     roc_auc_score = metrics.roc_auc_score(test_y, y_pred)
@@ -168,7 +169,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
 
     return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc)}
 
-def train_node(params, max_proteins=2000):
+def train_node(params, max_proteins=60000):
     test_go_set = params['test_go_set']
     go_annotations = params['go_annotations']
     all_proteins = set()
@@ -273,7 +274,7 @@ if __name__ == '__main__':
         'go_clusters': go_lists
     }
 
-    clusters = list(go_lists.items())[:10]
+    clusters = list(go_lists.items())
     params = []
     for cluster_name, cluster_gos in clusters:
         params.append({
