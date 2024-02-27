@@ -31,7 +31,7 @@ from random import sample
 from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
     load_labels_from_dir, config, run_command)
 from go_clustering import cluster_go_by_levels_and_freq
-from plotting import plot_experiment
+from plotting import plot_experiment, plot_nodes_graph
 
 def make_dataset(dirname, protein_list, go_set):
     print('Loading features')
@@ -312,3 +312,4 @@ if __name__ == '__main__':
     run_command(['mv', json_path_val, json_path])
     
     plot_experiment(json_path_val)
+    plot_nodes_graph(json_path_val)
