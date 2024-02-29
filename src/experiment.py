@@ -31,7 +31,7 @@ from random import sample
 from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
     load_labels_from_dir, config, run_command)
 from go_clustering import cluster_go_by_levels_and_freq
-from plotting import plot_experiment, plot_nodes_graph
+from plotting import plot_experiment, plot_nodes_graph, plot_progress
 
 def make_dataset(dirname, protein_list, go_set):
     print('Loading features')
@@ -149,7 +149,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
             lr = lr * 0.5
         return lr
     lr_callback = LearningRateScheduler(lr_schedule, verbose=1)
-    es = EarlyStopping(monitor='val_auc', patience=6)
+    es = EarlyStopping(monitor='val_auc', patience=config['patience'])
 
     print("Compiling")
     model.compile(optimizer=Adam(learning_rate=0.0003),
@@ -160,7 +160,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
     x_test_vec = [x for name, x in test_x]
     history = model.fit([x for name, x in train_x], train_y,
         validation_data=(x_test_vec, test_y),
-        epochs=24, batch_size=256,
+        epochs=config['epochs'], batch_size=256,
         callbacks=[lr_callback, es])
     
     y_pred = model.predict(x_test_vec)
@@ -312,5 +312,6 @@ if __name__ == '__main__':
     json_path_val = post_process_and_validate(json_path, big_table_path)
     run_command(['mv', json_path_val, json_path])
     
-    plot_experiment(json_path_val)
-    plot_nodes_graph(json_path_val)
+    plot_experiment(json_path)
+    plot_nodes_graph(json_path)
+    plot_progress()

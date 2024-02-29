@@ -191,7 +191,93 @@ def plot_nodes_graph(experiment_json_path):
     output_path = artifacts_dir+'/nodes_graph.png'
     fig.savefig(output_path, dpi=200)
 
+def plot_progress():
+    current_dir = path.dirname(__file__)
+    expsdir = path.dirname(current_dir) + '/experiments'
+    experiments = glob(expsdir+'/*.json')
+    loaded = []
+    for p in experiments:
+        print(p)
+        experiment = None
+        try:
+            experiment = json.load(open(p, 'r'))
+        except JSONDecodeError as err:
+            print(err)
+            print('Cannot load', p)
+        if experiment:  
+            if 'validation_mean_metrics' in experiment:
+                newdata = experiment['validation_mean_metrics']
+                if 'validation_std' in experiment:
+                    for key, val in experiment['validation_std'].items():
+                        newdata[key+'_std'] = val
+                else:
+                    newdata['hamming_loss_std'] = 0.0
+                    newdata['precision_score_std'] = 0.0
+                    newdata['recall_score_std'] = 0.0
+                    newdata['accuracy_score_std'] = 0.0
+                    newdata['roc_auc_ma_bin_std'] = 0.0
+                newdata['name'] = path.basename(p).rstrip('.json')
+                loaded.append(newdata)
+    
+    for l in loaded:
+        print(l)
+    loaded.sort(key = lambda data: data['name'])
+    metrics_to_plot = ['hamming_loss', 'precision_score', 'recall_score',
+       'accuracy_score', 'roc_auc_ma_bin']
+    metric_labels = ['Hamming Loss', 'Precision', 'Recall',
+       'Accuracy', 'ROC AUC']
+    std_values = []
+    metric_values = []
+    for metric_name in metrics_to_plot:
+        vec = []
+        std_vec = []
+        for data in loaded:
+            if metric_name in data:
+                vec.append(data[metric_name])
+                std_vec.append(data[metric_name+'_std'])
+            else:
+                if len(vec) > 0:
+                    vec.append(vec[-1])
+                    std_vec.append(std_vec[-1])
+                else:
+                    vec.append(0.0)
+                    std_vec.append(0.0)
+        print(metric_name, vec, std_vec)
+        std_values.append(std_vec)
+        metric_values.append(vec)
+    metric_values[0] = [1-x for x in metric_values[0]]
+    names = [data['name'] for data in loaded]
+    print(names)
+    fig, ax = plt.subplots(1,1, figsize=(16,20))
+    fig.gca().invert_xaxis()
+    x_indexes = list(range(len(names)))
+    for i in range(len(metrics_to_plot)):
+        metric_label = metric_labels[i]
+        std = std_values[i]
+        vals = metric_values[i]
+        
+        ax.plot(vals, x_indexes, label=metric_label)
+        ax.fill_betweenx(x_indexes, np.array(vals)-np.array(std), 
+            np.array(vals)+np.array(std), alpha = 0.1)
+    #ax.plot(names, )
+    fig.tight_layout()
+    ax.legend()
+    ax.set_title("Mean Metrics")
+    ax.set_yticks(x_indexes)
+    ax.set_yticklabels(names)
+    ax.set_xlim(ax.get_xlim()[::-1])
+    ax.set_ylim(ax.get_ylim()[::-1])
+
+    plt.show()
+    
+    output_path = expsdir+'/progress.png'
+    fig.savefig(output_path, dpi=200)
+    
 if __name__ == "__main__":
-    experiment_json_path = '../experiments/2024-02-21_09-14-59_Full-training-2.validated.json'
-    #plot_nodes_graph(experiment_json_path)
-    plot_experiment(experiment_json_path)
+    experiments = ['../experiments/2024-02-21_09-14-59_Full-training-2.validated.json',
+       '../experiments/2024-02-27_16-04-20_Full-training-With-Early-Stopping.json']
+    for exp in experiments:
+        plot_nodes_graph(exp)
+        plot_experiment(exp)
+    
+    plot_progress()
