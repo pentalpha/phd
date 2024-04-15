@@ -8,4 +8,4 @@ testing_perc: 0.25
 validation_perc: 0.15
 training_processes: 24
 patience: 10
-epochs: 30
+epochs: 40

@@ -47,6 +47,7 @@ def convert_name_to_abc(node_names):
             
         levels[level].append(node_name)
     new_names = {}
+    freq_min_max = {}
     
     for level, node_names in levels.items():
         node_names.sort(key=lambda x: int(x.split('_')[1].split('-')[1]))
@@ -56,8 +57,13 @@ def convert_name_to_abc(node_names):
             letter = str(bytes([i+65]).decode())
             new_names[n] = '_'.join([parts[0], letter])
             i += 1
+            
+            #print(parts)
+            _, min_str, max_str = parts[1].split('-')
+            freq_min_max[new_names[n]] = (int(min_str), int(max_str))
+            print(n, min_str, max_str)
     
-    return new_names
+    return new_names, freq_min_max
 
 def plot_nodes_graph(experiment_json_path):
     artifacts_dir = experiment_json_path.rstrip('.json')
@@ -69,7 +75,7 @@ def plot_nodes_graph(experiment_json_path):
         if group != 'all':
             data.append([group, metrics])
     
-    new_names = convert_name_to_abc([x for x,_ in data])
+    new_names, freq_min_max = convert_name_to_abc([x for x,_ in data])
     for i in range(len(data)):
         data[i][0] = new_names[data[i][0]]
         
@@ -85,9 +91,10 @@ def plot_nodes_graph(experiment_json_path):
     for node_name, metrics in data:
         level_str, x_pos_str = node_name.split('_')
         level = int(level_str.split('-')[1])
-        x_pos = letter_to_int(x_pos_str)
+        #x_pos = letter_to_int(x_pos_str)
+        x_min, x_max = freq_min_max[node_name]
         
-        x.append(x_pos)
+        x.append((x_min, x_max))
         y.append(level)
         labels.append(node_name)
         hamming_loss.append(metrics['hamming_loss'])
@@ -104,10 +111,10 @@ def plot_nodes_graph(experiment_json_path):
     cmap = cm.winter
     m = cm.ScalarMappable(norm=norm, cmap=cmap)
     
-    fig, ax = plt.subplots(1,1, figsize=(13,9))
-    ax.scatter(x, y, c='white')
+    fig, ax = plt.subplots(1,1, figsize=(20,9))
+    ax.scatter([(x1+x2)/2 for x1,x2 in x], y, c='white')
     for index in range(len(x)):
-        current_x = x[index]
+        x_min, x_max = x[index]
         current_y = y[index]
         label = labels[index]
         current_hamming_loss = hamming_loss[index]
@@ -120,17 +127,17 @@ def plot_nodes_graph(experiment_json_path):
         minus_hl = minus_hl*minus_hl*minus_hl
         
         roc_auc_color = m.to_rgba(current_roc_auc)
-        roc_auc_pos = (current_x, current_y-0.5)
-        roc_auc_w = 0.47
+        roc_auc_pos = (x_min, current_y-0.5)
+        roc_auc_w = x_max-x_min
         roc_auc_h = 0.9
         roc_auc_rect = patches.Rectangle(roc_auc_pos, roc_auc_w, roc_auc_h, 
-            linewidth=0, facecolor=roc_auc_color)
-        ax.text(roc_auc_pos[0]+roc_auc_w/2, roc_auc_pos[1]+0.45, 
+            linewidth=2, facecolor=roc_auc_color, edgecolor='white')
+        ax.text(roc_auc_pos[0]+(roc_auc_w)/2, roc_auc_pos[1]+0.45, 
             'ROC='+str(round(current_roc_auc, 2)),
             horizontalalignment='center',
             verticalalignment='center')
         
-        prec_color = m.to_rgba(current_precision_score)
+        '''prec_color = m.to_rgba(current_precision_score)
         prec_pos = (current_x+roc_auc_w, current_y-0.05)
         prec_w = roc_auc_w/2
         prec_h = roc_auc_h/2
@@ -158,7 +165,7 @@ def plot_nodes_graph(experiment_json_path):
             linewidth=0, facecolor=rec_color)
         ax.text(rec_pos[0]+rec_w/2, rec_pos[1]+rec_h/2, 
             'REC', horizontalalignment='center',
-            verticalalignment='center')
+            verticalalignment='center')'''
         
         '''hl_color = m.to_rgba(minus_hl)
         hl_pos = (current_x+roc_auc_w+rec_w, current_y-prec_h-0.05)
@@ -170,17 +177,18 @@ def plot_nodes_graph(experiment_json_path):
             '1-HL', horizontalalignment='center',
             verticalalignment='center')'''
         
-        print(current_x, current_y+1, 0.5, 1)
+        print(x_min, x_max, current_y+1, 0.5, 1)
         ax.add_patch(roc_auc_rect)
-        ax.add_patch(prec_rect)
-        ax.add_patch(acc_rect)
-        ax.add_patch(rec_rect)
+        #ax.add_patch(prec_rect)
+        #ax.add_patch(acc_rect)
+        #ax.add_patch(rec_rect)
         
-    ax.get_xaxis().set_visible(False)
-    
+    #ax.get_xaxis().set_visible(False)
+    ax.set_xscale('log', base=30)
     ax.set_ylabel("Gene Ontology Level")
+    ax.set_xlabel("Number of Positive Samples (Annotations) per Class")
     ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
+    #ax.spines['bottom'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.spines['left'].set_visible(False)
     fig.colorbar(m, ax=ax, label='Metric Value')
@@ -236,10 +244,11 @@ def plot_progress():
                 vec.append(data[metric_name])
                 std_vec.append(data[metric_name+'_std'])
             else:
+                print(metric_name, 'not in', data['name'])
                 if len(vec) > 0:
                     vec.append(vec[-1])
                     std_vec.append(std_vec[-1])
-                else:
+                else:   
                     vec.append(0.0)
                     std_vec.append(0.0)
         print(metric_name, vec, std_vec)
@@ -248,7 +257,7 @@ def plot_progress():
     metric_values[0] = [1-x for x in metric_values[0]]
     names = [data['name'] for data in loaded]
     print(names)
-    fig, ax = plt.subplots(1,1, figsize=(16,20))
+    fig, ax = plt.subplots(1,1, figsize=(8,4))
     fig.gca().invert_xaxis()
     x_indexes = list(range(len(names)))
     for i in range(len(metrics_to_plot)):
@@ -275,9 +284,10 @@ def plot_progress():
     
 if __name__ == "__main__":
     experiments = ['../experiments/2024-02-21_09-14-59_Full-training-2.validated.json',
-       '../experiments/2024-02-27_16-04-20_Full-training-With-Early-Stopping.json']
+       '../experiments/2024-02-27_16-04-20_Full-training-With-Early-Stopping.json',
+       '../experiments/2024-02-29_23-54-28_Max-40-epochs.json']
     for exp in experiments:
         plot_nodes_graph(exp)
-        plot_experiment(exp)
+        #plot_experiment(exp)
     
     plot_progress()
