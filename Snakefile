@@ -22,6 +22,7 @@ input_labels_path = 'input/labels.tsv'
 input_features_ids_path = 'input/ids.txt'
 input_features_ids_traintest_path = 'input/traintest/ids.txt'
 input_features_ids_validation_path = 'input/validation/ids.txt'
+probs_deepfri_validation_path = 'input/validation/deepfri_probs.tsv.gz'
 
 rule download_go:
     output:
@@ -85,3 +86,20 @@ rule sep_validation:
         input_features_ids_validation_path
     shell:
         "conda run --live-stream -n plm python src/validation.py"
+
+rule deepfried:
+    input:
+        config['deepfri_path']
+    output:
+        'input/deepfri_probs.tsv.gz'
+    shell:
+        "python src/prepare_external_tools_dataset.py " + config['deepfri_path']
+
+rule external_validation:
+    input:
+        input_features_ids_validation_path,
+        'input/deepfri_probs.tsv.gz'
+    output:
+        probs_deepfri_validation_path
+    shell:
+        "conda run --live-stream -n plm python src/validation_external.py"
