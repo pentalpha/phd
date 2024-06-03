@@ -10,7 +10,8 @@ from util import (filter_features, load_features, load_labels_from_dir, open_fil
     config, run_command, write_file)
 
 from util import (features_taxon_path, input_features_ids_path, features_taxon_prefix,
-                  features_esm_base_path)
+                  features_esm_base_path, features_taxon_profile_prefix,
+                  features_taxon_profile_path)
 
 if __name__ == '__main__':
     proteins_by_taxid = {}
@@ -90,6 +91,7 @@ if __name__ == '__main__':
         ids_file = directory+'/ids.txt'
         labels_file = directory+'/labels.tsv'
         taxon_file = directory+'/'+features_taxon_prefix
+        taxon_profile_file = directory+'/'+features_taxon_profile_prefix
         
         open(ids_file, 'w').write('\n'.join(protein_list))
         
@@ -103,6 +105,8 @@ if __name__ == '__main__':
 
         print('Writing taxa')
         filter_features(features_taxon_path, protein_list, taxon_file)
+        print('Writing taxa profile')
+        filter_features(features_taxon_profile_path, protein_list, taxon_profile_file)
 
         print('Writing ESM')
         esm_feature_paths = glob(features_esm_base_path)

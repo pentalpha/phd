@@ -24,11 +24,15 @@ input_features_ids_validation_path = proj_dir+'/input/ids_validation.txt'
 input_labels_path = proj_dir+'/input/labels.tsv'
 taxon_features = proj_dir+'/input/features/taxon_one_hot.tsv.gz'
 taxon_features_ids = proj_dir+'/input/features/taxon_one_hot_ids.txt'
+taxon_profiles = proj_dir+'/input/features/taxon_profiles.tsv.gz'
+taxon_profiles_ids = proj_dir+'/input/features/taxon_profiles_ids.txt'
 fairesm_features = proj_dir+'/input/features/fairesm_*'
 
 features_esm_prefix = 'feature_esm_*.tsv.gz'
 features_taxon_prefix = 'feature_taxa.tsv.gz'
+features_taxon_profile_prefix = 'feature_taxa_profile.tsv.gz'
 features_taxon_path = proj_dir+'/input/'+features_taxon_prefix
+features_taxon_profile_path = proj_dir+'/input/'+features_taxon_profile_prefix
 features_esm_base_path = proj_dir+'/input/'+features_esm_prefix
 
 def run_command(cmd_vec, stdin="", no_output=True):
@@ -257,9 +261,10 @@ def load_dataset_from_dir(dirname: str, subset: list = []):
 
     features = []
 
-    taxa_path = dirname+'/'+features_taxon_prefix
-    print('loading', taxa_path)
-    taxa_features = load_features(taxa_path, subset, int)
+    taxa_path = dirname+'/'+features_taxon_profile_prefix
+    taxa_features = load_features(taxa_path, subset, float)
+    #taxa_path = dirname+'/'+features_taxon_prefix
+    #taxa_features = load_features(taxa_path, subset, int)
     features.append(('taxa', taxa_features))
 
     esm_paths = glob(dirname+'/'+features_esm_prefix)

@@ -58,7 +58,8 @@ def cluster_gos_by_freq_percentiles(go_labels: dict, n_proteins: int):
 
     return go_sets
 
-def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_graph, min_annots):
+def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_graph, min_annots,
+        only_test_nodes):
     go_graph = load_go_graph()
     root = 'GO:0003674'
     go_levels_2 = {}
@@ -85,6 +86,10 @@ def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_gr
         levels[level].append(goid)
     
     clusters = {}
+
+    test_nodes = {3: [0, 2], 5: [1,2], 7: [1, 3]}
+    
+    clusters_to_keep = []
     for level, goids in levels.items():
         go_freqs = [(go, go_n_annotations[go]) for go in goids 
             if (go_n_annotations[go] / n_proteins) < 0.9]
@@ -102,6 +107,9 @@ def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_gr
         
         total_len = 0
         last_cluster_name = None
+        to_use = test_nodes[level] if level in test_nodes else []
+        
+        current_percentile = 0
         for start, end in perc_index:
             sub_gos = go_freqs[start:end+1]
             min_freq = sub_gos[0][1]
@@ -113,8 +121,10 @@ def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_gr
             if len(sub_gos) > 2:
                 cluster_name = ('Level-'+str(level)+'_Freq-'+str(min_freq)+'-'
                     +str(max_freq)+'_N-'+str(len(sub_gos)))
+                if current_percentile in to_use or not only_test_nodes:
+                    clusters_to_keep.append(cluster_name)
                 clusters[cluster_name] = cluster_goids
-                print(cluster_name.split('_'))
+                #print(cluster_name.split('_'))
             else:
                 last_cluster = clusters[last_cluster_name]
                 level_str, freq_str, n_str = last_cluster_name.split('_')
@@ -123,10 +133,21 @@ def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_gr
                 new_cluster = last_cluster + cluster_goids
                 cluster_name = ('Level-'+str(level)+'_Freq-'+str(last_min_freq)+'-'
                     +str(max_freq)+'_N-'+str(len(new_cluster)))
+                if current_percentile in to_use or not only_test_nodes:
+                    clusters_to_keep.append(cluster_name)
                 clusters[cluster_name] = new_cluster
                 del clusters[last_cluster_name]
-                print(cluster_name.split('_'))
+                #print(cluster_name.split('_'))
             last_cluster_name = cluster_name
+            current_percentile += 1
+        
+    all_cluster_names = list(clusters.keys())
+    for name in all_cluster_names:
+        if not name in clusters_to_keep:
+            print('Ignoring protein cluster', name)
+            del clusters[name]
+        else:
+            print('Using protein cluster', name)
         #print(total_len)
     return clusters
 

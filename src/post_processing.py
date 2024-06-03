@@ -9,7 +9,7 @@ import numpy as np
 from gene_ontology import load_go_graph
 from sklearn import metrics
 
-from util import chunks
+from util import chunks, run_command
 
 def annotations_dict_to_df(ann: dict, goids: list, proteinids: list):
     lines = []
@@ -138,7 +138,7 @@ def correct_by_max_children(df: pd.DataFrame, goidsubset, go_graph: nx.MultiDiGr
     
     return annotations, children_dict
 
-def post_process_and_validate(experiment_json_path, validation_df_path):
+def post_process_and_validate(experiment_json_path, validation_df_path, is_test):
     
     labels_validation_path = 'input/validation/labels.tsv'
     print('Loading results')
@@ -186,18 +186,22 @@ def post_process_and_validate(experiment_json_path, validation_df_path):
         target_sets.append((clustername, targets_with_ann))
     
     corrected_path = validation_df_path.replace('.tsv', '.corrected.tsv')
-    if not os.path.exists(corrected_path):
-        print('Correcting probabilities by avg(node,min(parents),max(children)) method')
-        annotations1, children_dict, parent_dict = correct_by_child_parent_avg(
-            validation_df, annotated_goids, go_graph, proteinids)
-        output = open(corrected_path, 'w')
-        output.write('protein\ttaxid\t'+ '\t'.join(annotated_goids)+'\n')
-        for protid in proteinids:
-            predicted_probs_str = [str(x) for x in annotations1[protid]]
-            output.write(protid+'\t' + '\t'.join(predicted_probs_str)+'\n')
-        output.close()
-        #validation_corrected = annotations_dict_to_df(annotations1, annotated_goids, proteinids)
-    validation_corrected = pd.read_csv(corrected_path, sep='\t', index_col=False)
+    if is_test:
+        validation_corrected = validation_df
+        run_command(['cp', validation_df_path, corrected_path])
+    else:
+        if not os.path.exists(corrected_path):
+            print('Correcting probabilities by avg(node,min(parents),max(children)) method')
+            annotations1, children_dict, parent_dict = correct_by_child_parent_avg(
+                validation_df, annotated_goids, go_graph, proteinids)
+            output = open(corrected_path, 'w')
+            output.write('protein\ttaxid\t'+ '\t'.join(annotated_goids)+'\n')
+            for protid in proteinids:
+                predicted_probs_str = [str(x) for x in annotations1[protid]]
+                output.write(protid+'\t' + '\t'.join(predicted_probs_str)+'\n')
+            output.close()
+            #validation_corrected = annotations_dict_to_df(annotations1, annotated_goids, proteinids)
+        validation_corrected = pd.read_csv(corrected_path, sep='\t', index_col=False)
     
     validation_results = {}
 

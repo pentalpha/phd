@@ -45,7 +45,9 @@ def taxon_to_onehot(taxid, all_taxids):
 def calc_taxon_features(output_dir, min_taxon_freq = 50):
     annotations = load_parsed_goa(input_annotation_path)
     print(len(annotations), 'annotations loaded')
-    taxons = [cells[-1] for cells in annotations]
+    taxons = []
+    for cells in annotations:
+        taxons += cells[-1].split('|')
     taxon_counts = [(taxid, count) for taxid, count  in Counter(taxons).items()]
     taxon_counts.sort(key=lambda tp: tp[1], reverse=True)
     frequent = [taxid for taxid, count in taxon_counts[:config['max_taxons']]]
@@ -71,7 +73,8 @@ def make_features(esm_feature_dfs):
     proteins_and_taxid = set()
     for rawline in open_file(input_annotation_path):
         cells = rawline.rstrip('\n').split('\t')
-        proteins_and_taxid.add((cells[0], cells[3]))
+        for taxid in cells[3].split('|'):
+            proteins_and_taxid.add((cells[0], taxid))
     proteins_and_taxid = list(proteins_and_taxid)
     proteins_and_taxid.sort(key=lambda tp: tp[0])
 
@@ -108,11 +111,8 @@ def make_features(esm_feature_dfs):
     esm_files = {esm_len: write_file(esm_path)
         for esm_len, esm_path in esm_paths.items()}
 
-    ids_file = open(input_features_ids_path, 'w')
-    n_prots = 0
+    has_esm = []
     for protid, taxid in tqdm(proteins_and_taxid):
-        feature_vec = []
-
         all_esms = True
         for esm_len, esm_features_dict in esms:
             if not protid in esm_features_dict:
@@ -123,20 +123,38 @@ def make_features(esm_feature_dfs):
             no_taxid += 1
         
         if all_esms and in_taxa:
-            startline = '\n' if n_prots > 0 else ''
-            ids_file.write(startline+protid+'\t'+taxid)
-            for esm_len, esm_features_dict in esms:
-                esm_vec = [str(x) for x in esm_features_dict[protid]]
-                esm_line = startline+'\t'.join(esm_vec)
-                esm_files[esm_len].write(esm_line)
-            taxa_line = startline+'\t'.join([str(x) for x in taxons[taxid]])
-            taxon_features_file.write(taxa_line)
-            n_prots += 1
-    ids_file.close()
-    for esm_len, esm_file in esm_files.items():
-        esm_file.close()
-    taxon_features_file.close()
+            has_esm.append((protid, taxid))
     
+    print('Saving taxon features one hot')
+    n_prots = 0
+    startline = ''
+    for protid, taxid in tqdm(has_esm):
+        taxa_line = startline+'\t'.join([str(x) for x in taxons[taxid]])
+        taxon_features_file.write(taxa_line)
+        startline = '\n'
+        n_prots += 1
+    taxon_features_file.close()
+
+    for esm_len, esm_features_dict in esms:
+        print('Saving fairesm', esm_len)
+        output_stream = esm_files[esm_len]
+        startline = ''
+        for protid, taxid in tqdm(has_esm):
+            esm_vec = [str(x) for x in esm_features_dict[protid]]
+            esm_line = startline+'\t'.join(esm_vec)
+            output_stream.write(esm_line)
+            startline = '\n'
+        output_stream.close()
+    
+    #for esm_len, esm_file in esm_files.items():
+    #    esm_file.close()
+    
+    
+    ids_file_lines = [protid+'\t'+taxid for protid, taxid in has_esm]
+    ids_file = open(input_features_ids_path, 'w')
+    ids_file.write('\n'.join(ids_file_lines))
+    ids_file.close()
+
     print(n_prots, 'proteins')
     print(no_taxid, 'removed because of unfrequent taxon')
     print(no_esm, 'removed because of no ESM embedding taxon')

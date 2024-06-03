@@ -241,9 +241,13 @@ def predict_with_model(nodes, experiment_dir):
 
 if __name__ == '__main__':
     print(sys.argv)
-    experiment_comment = sys.argv[1]
+    is_test = sys.argv[1] != 'all'
+    experiment_comment = sys.argv[2]
     timestamp = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
-    experiment_name = timestamp+'_'+experiment_comment.replace(" ","-")
+    if is_test:
+        experiment_name = timestamp+'_TEST_'+experiment_comment.replace(" ","-")
+    else:
+        experiment_name = timestamp+'_'+experiment_comment.replace(" ","-")
     print('Loading train/test ids')
     traintest_ids = open('input/traintest/ids.txt', 'r').read().split('\n')
     print(len(traintest_ids), 'proteins')
@@ -253,8 +257,8 @@ if __name__ == '__main__':
     go_graph = load_go_graph()
     percentiles = [40, 70, 90]
     go_lists = cluster_go_by_levels_and_freq(go_annotations, len(traintest_ids), 
-        percentiles, go_graph, config['min_annotations'])
-
+        percentiles, go_graph, config['min_annotations'], is_test)
+    print(go_lists.keys())
     '''last_cluster = go_lists[list(go_lists.keys())[-1]]
     test_go_set = last_cluster[-6:]
     print(test_go_set)'''
@@ -277,11 +281,12 @@ if __name__ == '__main__':
     clusters = list(go_lists.items())
     params = []
     for cluster_name, cluster_gos in clusters:
+        print('Creating params for', cluster_name, 'with', len(cluster_gos), 'targets')
         params.append({
             'test_go_set': cluster_gos,
             'go_annotations': go_annotations
         })
-    
+    #quit(1)
     with Pool(config['training_processes']) as pool:
         models_and_stats = pool.map(train_node, params)
     
@@ -309,7 +314,7 @@ if __name__ == '__main__':
     json_path = experiment_dir+'.json'
     json.dump(experiment_json, open(json_path, 'w'), indent=4)
 
-    json_path_val = post_process_and_validate(json_path, big_table_path)
+    json_path_val = post_process_and_validate(json_path, big_table_path, is_test)
     run_command(['mv', json_path_val, json_path])
     
     plot_experiment(json_path)

@@ -16,6 +16,7 @@ go_basic = "databases/go-basic.obo"
 proteins_for_learning = "input/proteins.fasta"
 input_annotation_path = 'input/annotation.tsv'
 taxon_features = 'input/features/taxon_one_hot.npy'
+features_taxon_profile_path = 'input/feature_taxa_profile.tsv.gz'
 esm_features = 'input/features/esm.npy'
 input_features_path = 'input/features.npy'
 input_labels_path = 'input/labels.tsv'
@@ -68,6 +69,14 @@ rule create_features:
         input_features_ids_path
     shell:
         "conda run --live-stream -n plm python src/calc_features.py "+proteins_for_learning+" input/features"
+    
+rule create_taxon_profiles:
+    input:
+        input_features_ids_path
+    output:
+        features_taxon_profile_path
+    shell:
+        "conda run --live-stream -n plm python src/calc_taxon_dist.py"
 
 rule list_labels:
     input:
@@ -79,6 +88,7 @@ rule list_labels:
 
 rule sep_validation:
     input:
+        features_taxon_profile_path,
         input_features_ids_path,
         input_labels_path
     output:

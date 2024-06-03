@@ -92,12 +92,13 @@ if __name__ == '__main__':
 
     print('Expanding GO')
     for rawline in tqdm(parsed[1:]):
-        protid, goid, evi, taxid = rawline.split('\t')
+        protid, goid, evi, taxids = rawline.split('\t')
         expanded_set = expand_go_set(goid, go_graph, goes_to_not_use)
         for goid2 in expanded_set:
             if not (protid, goid2) in already_added:
-                new_parsed.append('\t'.join([protid, goid2, evi, taxid]))
-                already_added.add((protid, goid2))
+                for taxid in taxids.split('|'):
+                    new_parsed.append('\t'.join([protid, goid2, evi, taxid]))
+                    already_added.add((protid, goid2))
     
     print(len(parsed), 'annotations from goa_uniprot_all')
     print(len(new_parsed), 'annotations with expansion')

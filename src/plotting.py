@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 import sys
 from os import path, mkdir
 import json
@@ -199,10 +200,17 @@ def plot_nodes_graph(experiment_json_path):
     output_path = artifacts_dir+'/nodes_graph.png'
     fig.savefig(output_path, dpi=200)
 
-def plot_progress():
+def name_to_date(name):
+    return datetime.strptime(name.split('_')[0]+'_'+name.split('_')[1], '%Y-%m-%d_%H-%M-%S')
+
+def plot_experiments(plot_tests):
     current_dir = path.dirname(__file__)
     expsdir = path.dirname(current_dir) + '/experiments'
     experiments = glob(expsdir+'/*.json')
+    if plot_tests:
+        experiments = [e for e in experiments if '_TEST_' in e]
+    else:
+        experiments = [e for e in experiments if not '_TEST_' in e]
     loaded = []
     for p in experiments:
         print(p)
@@ -220,20 +228,18 @@ def plot_progress():
                         newdata[key+'_std'] = val
                 else:
                     newdata['hamming_loss_std'] = 0.0
-                    newdata['precision_score_std'] = 0.0
                     newdata['recall_score_std'] = 0.0
-                    newdata['accuracy_score_std'] = 0.0
                     newdata['roc_auc_ma_bin_std'] = 0.0
                 newdata['name'] = path.basename(p).rstrip('.json')
                 loaded.append(newdata)
     
     for l in loaded:
         print(l)
-    loaded.sort(key = lambda data: data['name'])
-    metrics_to_plot = ['hamming_loss', 'precision_score', 'recall_score',
-       'accuracy_score', 'roc_auc_ma_bin']
-    metric_labels = ['Hamming Loss', 'Precision', 'Recall',
-       'Accuracy', 'ROC AUC']
+    loaded.sort(key = lambda data: name_to_date(data['name']))
+    metrics_to_plot = ['recall_score',
+       'roc_auc_ma_bin']
+    metric_labels = ['Recall',
+       'ROC AUC']
     std_values = []
     metric_values = []
     for metric_name in metrics_to_plot:
@@ -254,10 +260,10 @@ def plot_progress():
         print(metric_name, vec, std_vec)
         std_values.append(std_vec)
         metric_values.append(vec)
-    metric_values[0] = [1-x for x in metric_values[0]]
     names = [data['name'] for data in loaded]
-    print(names)
-    fig, ax = plt.subplots(1,1, figsize=(8,4))
+    dates = [name_to_date(name) for name in names]
+    print(dates)
+    fig, ax = plt.subplots(1,1, figsize=(12,8))
     fig.gca().invert_xaxis()
     x_indexes = list(range(len(names)))
     for i in range(len(metrics_to_plot)):
@@ -265,29 +271,35 @@ def plot_progress():
         std = std_values[i]
         vals = metric_values[i]
         
-        ax.plot(vals, x_indexes, label=metric_label)
-        ax.fill_betweenx(x_indexes, np.array(vals)-np.array(std), 
+        ax.plot(dates, vals, label=metric_label, linewidth=10)
+        ax.fill_between(dates, np.array(vals)-np.array(std), 
             np.array(vals)+np.array(std), alpha = 0.1)
     #ax.plot(names, )
-    fig.tight_layout()
     ax.legend()
     ax.set_title("Mean Metrics")
-    ax.set_yticks(x_indexes)
-    ax.set_yticklabels(names)
+    fig.tight_layout()
+    #ax.set_yticks(x_indexes)
+    #ax.set_yticklabels(names)
     ax.set_xlim(ax.get_xlim()[::-1])
-    ax.set_ylim(ax.get_ylim()[::-1])
+    #ax.set_ylim(ax.get_ylim()[::-1])
 
-    plt.show()
+    #plt.show()
     
-    output_path = expsdir+'/progress.png'
+    output_path = expsdir+'/progress.full_model.png'
+    if plot_tests:
+        output_path = expsdir+'/progress.tests.png'
     fig.savefig(output_path, dpi=200)
     
+def plot_progress():
+    plot_experiments(True)
+    plot_experiments(False)
+
 if __name__ == "__main__":
-    experiments = ['../experiments/2024-02-21_09-14-59_Full-training-2.validated.json',
+    '''experiments = ['../experiments/2024-02-21_09-14-59_Full-training-2.validated.json',
        '../experiments/2024-02-27_16-04-20_Full-training-With-Early-Stopping.json',
        '../experiments/2024-02-29_23-54-28_Max-40-epochs.json']
     for exp in experiments:
         plot_nodes_graph(exp)
-        #plot_experiment(exp)
+        #plot_experiment(exp)'''
     
     plot_progress()
