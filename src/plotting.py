@@ -9,6 +9,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 from glob import glob
+from validation_external import results_deepfri_validation_path
 
 def plot_experiment(input_json):
     artifacts_dir = input_json.rstrip('.json')
@@ -211,7 +212,8 @@ def plot_experiments(plot_tests):
         experiments = [e for e in experiments if '_TEST_' in e]
     else:
         experiments = [e for e in experiments if not '_TEST_' in e]
-    loaded = []
+    mean_roc_auc = []
+    nodes_roc_auc = {}
     for p in experiments:
         print(p)
         experiment = None
@@ -221,66 +223,53 @@ def plot_experiments(plot_tests):
             print(err)
             print('Cannot load', p)
         if experiment:  
-            if 'validation_mean_metrics' in experiment:
-                newdata = experiment['validation_mean_metrics']
-                if 'validation_std' in experiment:
-                    for key, val in experiment['validation_std'].items():
-                        newdata[key+'_std'] = val
+            if 'validation_mean_metrics' in experiment and 'validation' in experiment:
+                if len(experiment['validation']) > 1:
+                    name = path.basename(p).rstrip('.json')
+                    new_date = name_to_date(name)
+                    new_mean = experiment['validation_mean_metrics']['roc_auc_ma_bin']
+                    mean_roc_auc.append((new_date, new_mean))
+                    for nodename, metrics in experiment['validation'].items():
+                        if nodename.startswith('Level-'):
+                            if not nodename in nodes_roc_auc:
+                                nodes_roc_auc[nodename] = []
+                            nodes_roc_auc[nodename].append((new_date, metrics['roc_auc_ma_bin']))
                 else:
-                    newdata['hamming_loss_std'] = 0.0
-                    newdata['recall_score_std'] = 0.0
-                    newdata['roc_auc_ma_bin_std'] = 0.0
-                newdata['name'] = path.basename(p).rstrip('.json')
-                loaded.append(newdata)
+                    print('No node validation at', p)
+
+    mean_roc_auc.sort(key=lambda x: x[0])
+    for nodename, vals in nodes_roc_auc.items():
+          vals.sort(key=lambda x: x[0])
     
-    for l in loaded:
-        print(l)
-    loaded.sort(key = lambda data: name_to_date(data['name']))
-    metrics_to_plot = ['recall_score',
-       'roc_auc_ma_bin']
-    metric_labels = ['Recall',
-       'ROC AUC']
-    std_values = []
-    metric_values = []
-    for metric_name in metrics_to_plot:
-        vec = []
-        std_vec = []
-        for data in loaded:
-            if metric_name in data:
-                vec.append(data[metric_name])
-                std_vec.append(data[metric_name+'_std'])
-            else:
-                print(metric_name, 'not in', data['name'])
-                if len(vec) > 0:
-                    vec.append(vec[-1])
-                    std_vec.append(std_vec[-1])
-                else:   
-                    vec.append(0.0)
-                    std_vec.append(0.0)
-        print(metric_name, vec, std_vec)
-        std_values.append(std_vec)
-        metric_values.append(vec)
-    names = [data['name'] for data in loaded]
-    dates = [name_to_date(name) for name in names]
-    print(dates)
     fig, ax = plt.subplots(1,1, figsize=(12,8))
-    fig.gca().invert_xaxis()
-    x_indexes = list(range(len(names)))
-    for i in range(len(metrics_to_plot)):
-        metric_label = metric_labels[i]
-        std = std_values[i]
-        vals = metric_values[i]
-        
-        ax.plot(dates, vals, label=metric_label, linewidth=10)
-        ax.fill_between(dates, np.array(vals)-np.array(std), 
-            np.array(vals)+np.array(std), alpha = 0.1)
-    #ax.plot(names, )
-    ax.legend()
-    ax.set_title("Mean Metrics")
+    #fig.gca().invert_xaxis()
+
+    mean_dates = [m[0] for m in mean_roc_auc]
+    mean_vals = [m[1] for m in mean_roc_auc]
+    
+    for nodename, vals in nodes_roc_auc.items():
+        node_dates = [d for d, roc in vals]
+        node_vals = [roc for d, roc in vals]
+        print(node_dates)
+        print(node_vals)
+        ax.plot(node_dates, node_vals, label='Node ROC AUC', marker='o', linewidth=2, alpha=0.5, color='lightblue')
+
+    deepfri_val = json.load(open(results_deepfri_validation_path, 'r'))
+    deepfri_postproc_roc_auc = deepfri_val['validation']['postprocessed']['roc_auc_ma_bin_raw']
+    ax.hlines(deepfri_postproc_roc_auc, min(mean_dates), max(mean_dates), linewidth=8, 
+        color='orange', label='DeepFRI ROC AUC', linestyles='--')
+    print(mean_dates)
+    print(mean_vals)
+    ax.plot(mean_dates, mean_vals, label='Mean ROC AUC', linewidth=10, color='blue')
+
+    handles, labels = fig.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys())
+    ax.set_title("Protein GO Classification - ROC AUC")
     fig.tight_layout()
     #ax.set_yticks(x_indexes)
     #ax.set_yticklabels(names)
-    ax.set_xlim(ax.get_xlim()[::-1])
+    #ax.set_xlim(ax.get_xlim()[::-1])
     #ax.set_ylim(ax.get_ylim()[::-1])
 
     #plt.show()
