@@ -7,6 +7,7 @@ esm_models_to_use: [30, 33]
 testing_perc: 0.25
 validation_perc: 0.15
 training_processes: 24
+parsing_processes: 8
 patience: 10
 epochs: 40
 deepfri_path: /data/home/pitagoras/software/deepfri_main

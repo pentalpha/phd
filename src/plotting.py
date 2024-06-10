@@ -250,16 +250,16 @@ def plot_experiments(plot_tests):
     for nodename, vals in nodes_roc_auc.items():
         node_dates = [d for d, roc in vals]
         node_vals = [roc for d, roc in vals]
-        print(node_dates)
-        print(node_vals)
+        #print(node_dates)
+        #print(node_vals)
         ax.plot(node_dates, node_vals, label='Node ROC AUC', marker='o', linewidth=2, alpha=0.5, color='lightblue')
 
     deepfri_val = json.load(open(results_deepfri_validation_path, 'r'))
     deepfri_postproc_roc_auc = deepfri_val['validation']['postprocessed']['roc_auc_ma_bin_raw']
     ax.hlines(deepfri_postproc_roc_auc, min(mean_dates), max(mean_dates), linewidth=8, 
         color='orange', label='DeepFRI ROC AUC', linestyles='--')
-    print(mean_dates)
-    print(mean_vals)
+    #print(mean_dates)
+    #print(mean_vals)
     ax.plot(mean_dates, mean_vals, label='Mean ROC AUC', linewidth=10, color='blue')
 
     handles, labels = fig.gca().get_legend_handles_labels()

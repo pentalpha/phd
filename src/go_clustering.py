@@ -87,7 +87,9 @@ def cluster_go_by_levels_and_freq(go_annotations, n_proteins, percentiles, go_gr
     
     clusters = {}
 
-    test_nodes = {3: [0, 2], 5: [1,2], 7: [1, 3]}
+    #test_nodes = {3: [0, 2], 5: [1,2], 7: [1, 3]}
+    #test_nodes = {5: [0], 6: [0, 1], 7: [0, 1]}
+    test_nodes = {4: [0], 5: [0], 6: [0, 1], 7: [0, 1, 2]}
     
     clusters_to_keep = []
     for level, goids in levels.items():

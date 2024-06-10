@@ -253,7 +253,7 @@ def create_labels_matrix(labels: dict, ids_allowed: list, gos_allowed: list):
     return np.asarray(label_vecs)
 
 
-def load_dataset_from_dir(dirname: str, subset: list = []):
+def load_dataset_from_dir(dirname: str, subset: list = [], to_load = ['taxa_profile', 'esm']):
     if len(subset) == 0:
         ids_path = dirname+'/ids.txt'
         subset = open(ids_path, 'r').read().split('\n')
@@ -261,19 +261,24 @@ def load_dataset_from_dir(dirname: str, subset: list = []):
 
     features = []
 
-    taxa_path = dirname+'/'+features_taxon_profile_prefix
-    taxa_features = load_features(taxa_path, subset, float)
-    #taxa_path = dirname+'/'+features_taxon_prefix
-    #taxa_features = load_features(taxa_path, subset, int)
-    features.append(('taxa', taxa_features))
+    if 'taxa_profile' in to_load:
+        taxa_profile_path = dirname+'/'+features_taxon_profile_prefix
+        taxa_profile_features = load_features(taxa_profile_path, subset, float)
+        features.append(('taxa_profile', taxa_profile_features))
+    
+    if 'taxa' in to_load:
+        taxa_path = dirname+'/'+features_taxon_prefix
+        taxa_features = load_features(taxa_path, subset, int)
+        features.append(('taxa', taxa_features))
 
-    esm_paths = glob(dirname+'/'+features_esm_prefix)
-    for esm_path in esm_paths:
-        esm_len_str = esm_path.split('.')[-3].split('_')[-1]
-        esm_len = int(esm_len_str)
-        print('loading', esm_path)
-        esm_features = load_features(esm_path, subset, float)
-        features.append(('esm_'+str(esm_len), esm_features))
+    if 'esm' in to_load:
+        esm_paths = glob(dirname+'/'+features_esm_prefix)
+        for esm_path in esm_paths:
+            esm_len_str = esm_path.split('.')[-3].split('_')[-1]
+            esm_len = int(esm_len_str)
+            print('loading', esm_path)
+            esm_features = load_features(esm_path, subset, float)
+            features.append(('esm_'+str(esm_len), esm_features))
     
     return features, labels, annotations
 

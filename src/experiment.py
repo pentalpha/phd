@@ -2,6 +2,7 @@ import datetime
 import sys
 import json
 import os
+from os import path
 from multiprocessing import Pool
 from tqdm import tqdm
 
@@ -25,13 +26,17 @@ from keras import backend as K
 print(keras.__version__)
 from sklearn import metrics
 from skmultilearn.model_selection import iterative_train_test_split
-
+from mealpy import FloatVar, PSO, GOA
+from mealpy.bio_based import SMA
+from mealpy.evolutionary_based import DE, GA
 from random import sample
+from pickle import dump, load
 
 from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
     load_labels_from_dir, config, run_command)
 from go_clustering import cluster_go_by_levels_and_freq
 from plotting import plot_experiment, plot_nodes_graph, plot_progress
+from params import RandomSearchMetaheuristic, default_params, TRANSLATOR
 
 def make_dataset(dirname, protein_list, go_set):
     print('Loading features')
@@ -74,60 +79,58 @@ def split_train_test(ids, X, Y):
     return train_ids, train_x, train_y, test_ids, test_x, test_y
 
 def x_to_np(x):
-    print('Converting features to np')
+    #print('Converting features to np')
     for i in range(len(x)):
         feature_name, feature_vec = x[i]
         x[i] = (feature_name, np.asarray([np.array(vec) for vec in feature_vec]))
-        print(feature_name, x[i][1].shape)
+        #print(feature_name, x[i][1].shape)
     return x
 
-def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
+def makeMultiClassifierModel(train_x, train_y, test_x, test_y, params_dict = default_params):
     
-    print('Converting features to np')
+    #print('Converting features to np')
     for i in range(len(train_x)):
         feature_name, feature_vec = train_x[i]
         train_x[i] = (feature_name, np.asarray([np.array(vec) for vec in feature_vec]))
-        print(feature_name, train_x[i][1].shape)
+        #print(feature_name, train_x[i][1].shape)
     for i in range(len(test_x)):
         feature_name, feature_vec = test_x[i]
         test_x[i] = (feature_name, np.asarray([np.array(vec) for vec in feature_vec]))
-        print(feature_name, test_x[i][1].shape)
+        #print(feature_name, test_x[i][1].shape)
     
-    print('go labels', train_y.shape)
-    print('go labels', test_y.shape)
+    #print('go labels', train_y.shape)
+    #print('go labels', test_y.shape)
 
-    print('Defining network')
-
-    l1_dim = 600
-    l2_dim = 300
-    taxa_l1_dim = 128
-    taxa_l2_dim = 64
-    dropout_rate = 0.5
-
-    final_dim = 256
+    #print('Defining network')
 
     keras_inputs = []
     keras_input_networks = []
 
     for feature_name, feature_vec in train_x:
-        if 'taxa' in feature_name:
-            start_dim = taxa_l1_dim
-            end_dim = taxa_l2_dim
-        elif 'esm' in feature_name:
-            start_dim = l1_dim
-            end_dim = l2_dim
-        
+        feature_params = params_dict[feature_name]
+        start_dim = feature_params['l1_dim']
+        end_dim = feature_params['l2_dim']
+        leakyrelu_1_alpha = feature_params['leakyrelu_1_alpha']
+        dropout_rate = feature_params['dropout_rate']
         input_start = Input(shape=(feature_vec.shape[1],))
 
         input_network = Dense(start_dim, name=feature_name+'_dense_1')(input_start)
         input_network = BatchNormalization(name=feature_name+'_batchnorm_1')(input_network)
-        input_network = LeakyReLU(alpha=0.1, name=feature_name+'_leakyrelu_1')(input_network)
+        input_network = LeakyReLU(alpha=leakyrelu_1_alpha, name=feature_name+'_leakyrelu_1')(input_network)
         input_network = Dropout(dropout_rate, name=feature_name+'_dropout_1')(input_network)
         input_network = Dense(end_dim, name=feature_name+'_dense_2')(input_network)
 
         keras_inputs.append(input_start)
         keras_input_networks.append(input_network)
     
+    final_params = params_dict['final']
+    final_dim = final_params['final_dim']
+    dropout_rate = final_params['final_dim']
+    patience = final_params['patience']
+    epochs = final_params['epochs']
+    learning_rate = final_params['learning_rate']
+    batch_size = final_params['batch_size']
+
     # Concatenate the networks
     combined = Concatenate()(keras_input_networks)
     #combined = LeakyReLU(alpha=0.1, name='combined_leakyrelu_1')(combined)
@@ -136,7 +139,7 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
     output_1 = Dense(train_y.shape[1], activation='sigmoid', name='final_output_123')(combined)
 
     # Create the model
-    print('Creating Modle')
+    #print('Creating Modle')
     model = Model(inputs=keras_inputs,
         outputs=output_1)
 
@@ -148,48 +151,104 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y):
         if epoch > 0 and epoch % 10 == 0:
             lr = lr * 0.5
         return lr
-    lr_callback = LearningRateScheduler(lr_schedule, verbose=1)
-    es = EarlyStopping(monitor='val_auc', patience=config['patience'])
+    lr_callback = LearningRateScheduler(lr_schedule, verbose=0)
+    es = EarlyStopping(monitor='val_loss', patience=patience)
 
-    print("Compiling")
-    model.compile(optimizer=Adam(learning_rate=0.0003),
+    #print("Compiling")
+    model.compile(optimizer=Adam(learning_rate=learning_rate),
         loss = 'binary_crossentropy',
         metrics=['binary_accuracy', keras.metrics.AUC()])
 
-    print('Fiting')
+    #print('Fiting')
     x_test_vec = [x for name, x in test_x]
     history = model.fit([x for name, x in train_x], train_y,
         validation_data=(x_test_vec, test_y),
-        epochs=config['epochs'], batch_size=256,
-        callbacks=[lr_callback, es])
+        epochs=epochs, batch_size=batch_size,
+        callbacks=[lr_callback, es],
+        verbose=0)
     
-    y_pred = model.predict(x_test_vec)
+    y_pred = model.predict(x_test_vec, verbose=0)
     roc_auc_score = metrics.roc_auc_score(test_y, y_pred)
     acc = np.mean(keras.metrics.binary_accuracy(test_y, y_pred).numpy())
 
     return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc)}
 
-def train_node(params, max_proteins=60000):
-    test_go_set = params['test_go_set']
-    go_annotations = params['go_annotations']
-    all_proteins = set()
-    for go in test_go_set:
-        annots = go_annotations[go]
-        print(go, len(annots))
-        all_proteins.update(annots)
+def prepare_data(params, max_proteins=60000):
+    basename = 'tmp/'+params['cluster_name']
+    train_x_name = basename + '.train_x.obj'
+    train_y_name = basename + '.train_y.obj'
+    test_x_name = basename + '.test_x.obj'
+    test_y_name = basename + '.test_y.obj'
+
+    if all([path.exists(p) for p in [train_x_name, train_y_name, test_x_name, test_y_name]]):
+        return True
+    else:
+        print('Preparing', basename)
+        test_go_set = params['test_go_set']
+        go_annotations = params['go_annotations']
+        all_proteins = set()
+        for go in test_go_set:
+            annots = go_annotations[go]
+            print(go, len(annots))
+            all_proteins.update(annots)
+        
+        print(len(all_proteins), 'proteins')
+        protein_list = sorted(all_proteins)
+        if len(protein_list) > max_proteins:
+            protein_list = sample(protein_list, max_proteins)
+
+        print('Loading features')
+        features, local_labels = make_dataset('input/traintest', protein_list, test_go_set)
+        train_ids, train_x, train_y, test_ids, test_x, test_y = split_train_test(
+            protein_list, features, local_labels)
+
+        to_save = [(train_x_name, train_x), (train_y_name, train_y),
+                (test_x_name, test_x), (test_y_name, test_y),]
+        if not path.exists('tmp'):
+            run_command(['mkdir', 'tmp'])
+        for p, obj in to_save:
+            dump(obj, open(p, 'wb'))
+        
+        return True
     
-    print(len(all_proteins), 'proteins')
-    protein_list = sorted(all_proteins)
-    if len(protein_list) > max_proteins:
-        protein_list = sample(protein_list, max_proteins)
 
-    print('Loading features')
-    features, local_labels = make_dataset('input/traintest', protein_list, test_go_set)
-    train_ids, train_x, train_y, test_ids, test_x, test_y = split_train_test(
-        protein_list, features, local_labels)
+def train_node(params, max_proteins=60000, params_dict = default_params):
+    if 'params_dict' in params:
+        params_dict = params['params_dict']
+    
+    basename = 'tmp/'+params['cluster_name']
+    train_x_name = basename + '.train_x.obj'
+    train_y_name = basename + '.train_y.obj'
+    test_x_name = basename + '.test_x.obj'
+    test_y_name = basename + '.test_y.obj'
 
-    annot_model, stats = makeMultiClassifierModel(train_x, train_y, test_x, test_y)
-    print(stats)
+    if all([path.exists(p) for p in [train_x_name, train_y_name, test_x_name, test_y_name]]):
+        #print('Loading input from', basename+'.*')
+        train_x = load(open(train_x_name, 'rb'))
+        train_y = load(open(train_y_name, 'rb'))
+        test_x = load(open(test_x_name, 'rb'))
+        test_y = load(open(test_y_name, 'rb'))
+    else:
+        test_go_set = params['test_go_set']
+        go_annotations = params['go_annotations']
+        all_proteins = set()
+        for go in test_go_set:
+            annots = go_annotations[go]
+            print(go, len(annots))
+            all_proteins.update(annots)
+        
+        print(len(all_proteins), 'proteins')
+        protein_list = sorted(all_proteins)
+        if len(protein_list) > max_proteins:
+            protein_list = sample(protein_list, max_proteins)
+
+        print('Loading features')
+        features, local_labels = make_dataset('input/traintest', protein_list, test_go_set)
+        train_ids, train_x, train_y, test_ids, test_x, test_y = split_train_test(
+            protein_list, features, local_labels)
+
+    annot_model, stats = makeMultiClassifierModel(train_x, train_y, test_x, test_y, params_dict=params_dict)
+    #print(params['cluster_name'], stats)
 
     return annot_model, stats
 
@@ -212,9 +271,9 @@ def predict_with_model(nodes, experiment_dir):
         annot_model, targets = data
         all_targets += targets
         output.write('protein\ttaxid\t'+ '\t'.join(targets)+'\n')
-        print('Creating go label one hot encoding')
+        #print('Creating go label one hot encoding')
         val_y = create_labels_matrix(labels, val_protein_list, targets)
-        print('\t', val_y.shape)
+        #print('\t', val_y.shape)
     
         print('Validating')
         val_y_pred = annot_model.predict(val_x)
@@ -238,6 +297,75 @@ def predict_with_model(nodes, experiment_dir):
     output.close()
 
     return big_table_path
+
+class MetaheuristicTest():
+
+    def __init__(self, params) -> None:
+        self.nodes = params
+
+        '''self.problem_constrained = {
+            "obj_func": self.objective_func,
+            "bounds": TRANSLATOR.to_bounds(),
+            "minmax": "max",
+            "log_to": "file",
+            "log_file": "result.log",         # Default value = "mealpy.log"
+        }'''
+
+        self.heuristic_model = RandomSearchMetaheuristic(8, 
+            TRANSLATOR.upper_bounds, TRANSLATOR.lower_bounds,
+            n_jobs=12)
+    
+    def objective_func(self, solution):
+        new_params_dict = TRANSLATOR.decode(solution)
+        
+        for node in self.nodes:
+            node['params_dict'] = new_params_dict
+        '''n_procs = config['training_processes']
+        if n_procs > len(self.nodes):
+            n_procs = len(self.nodes)'''
+
+        roc_aucs = [train_node(node)[1]['ROC AUC'] for node in self.nodes]
+        print(np.mean(roc_aucs), np.std(roc_aucs), min(roc_aucs))
+        mean_training_roc = np.mean(roc_aucs)
+
+        return mean_training_roc
+
+    def test(self):
+        best_solution, best_fitness, report = self.heuristic_model.run_tests(self.objective_func)
+        solution_dict = TRANSLATOR.decode(best_solution)
+        print(json.dumps(solution_dict, indent=4))
+        print(best_fitness)
+
+        return solution_dict, best_fitness, report
+
+'''def metaheuristic_test(params):
+
+    def objective_func(solution):
+        new_params_dict = TRANSLATOR.decode(solution)
+        roc_aucs = []
+        for node in params:
+            _, stats = train_node(node, params_dict = new_params_dict)
+            roc_aucs.append(stats['ROC AUC'])
+        mean_training_roc = np.mean(roc_aucs)
+        return mean_training_roc
+        #return get_mean_training_roc(params, solution)
+
+    problem_constrained = {
+        "obj_func": objective_func,
+        "bounds": TRANSLATOR.to_bounds(),
+        "minmax": "max",
+        "log_to": "file",
+        "log_file": "result.log",         # Default value = "mealpy.log"
+    }
+
+    heuristic_model = PSO.OriginalPSO(epoch=6, pop_size=6)
+    g_best = heuristic_model.solve(problem_constrained, mode="process", n_workers=8)
+    solution_dict = TRANSLATOR.decode(g_best.solution)
+    fitness = g_best.target.fitness
+    print(json.dumps(solution_dict, indent=4))
+    print(fitness)
+
+    return solution_dict, fitness'''
 
 if __name__ == '__main__':
     print(sys.argv)
@@ -270,6 +398,8 @@ if __name__ == '__main__':
     for key, val in config.items():
         params[key] = val
 
+    experiment_dir = 'experiments/'+experiment_name
+    json_path = experiment_dir+'.json'
     experiment_json = {
         'id': timestamp,
         'comment': experiment_comment,
@@ -283,10 +413,22 @@ if __name__ == '__main__':
     for cluster_name, cluster_gos in clusters:
         print('Creating params for', cluster_name, 'with', len(cluster_gos), 'targets')
         params.append({
+            'cluster_name': cluster_name,
             'test_go_set': cluster_gos,
             'go_annotations': go_annotations
         })
-    #quit(1)
+    
+    with Pool(config['parsing_processes']) as pool:
+        _ = pool.map(prepare_data, params)
+    
+    meta = MetaheuristicTest(params)
+    solution_dict, fitness, report = meta.test()
+    meta_report_path = experiment_dir + '.optimization.txt'
+    open(meta_report_path, 'w').write(report)
+
+    for node in params:
+        node['params_dict'] = solution_dict
+    
     with Pool(config['training_processes']) as pool:
         models_and_stats = pool.map(train_node, params)
     
@@ -306,12 +448,11 @@ if __name__ == '__main__':
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
 
-    experiment_dir = 'experiments/'+experiment_name
+    
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
     big_table_path = predict_with_model(models, experiment_dir)
     
-    json_path = experiment_dir+'.json'
     json.dump(experiment_json, open(json_path, 'w'), indent=4)
 
     json_path_val = post_process_and_validate(json_path, big_table_path, is_test)
