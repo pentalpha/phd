@@ -36,7 +36,7 @@ from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_
     load_labels_from_dir, config, run_command)
 from go_clustering import cluster_go_by_levels_and_freq
 from plotting import plot_experiment, plot_nodes_graph, plot_progress
-from params import RandomSearchMetaheuristic, default_params, TRANSLATOR
+from params import RandomSearchMetaheuristic, default_params, PARAM_TRANSLATOR
 
 def make_dataset(dirname, protein_list, go_set):
     print('Loading features')
@@ -305,18 +305,18 @@ class MetaheuristicTest():
 
         '''self.problem_constrained = {
             "obj_func": self.objective_func,
-            "bounds": TRANSLATOR.to_bounds(),
+            "bounds": PARAM_TRANSLATOR.to_bounds(),
             "minmax": "max",
             "log_to": "file",
             "log_file": "result.log",         # Default value = "mealpy.log"
         }'''
 
-        self.heuristic_model = RandomSearchMetaheuristic(8, 
-            TRANSLATOR.upper_bounds, TRANSLATOR.lower_bounds,
-            n_jobs=12)
+        self.heuristic_model = RandomSearchMetaheuristic(60, 
+            PARAM_TRANSLATOR.upper_bounds, PARAM_TRANSLATOR.lower_bounds,
+            n_jobs=8)
     
     def objective_func(self, solution):
-        new_params_dict = TRANSLATOR.decode(solution)
+        new_params_dict = PARAM_TRANSLATOR.decode(solution)
         
         for node in self.nodes:
             node['params_dict'] = new_params_dict
@@ -327,55 +327,58 @@ class MetaheuristicTest():
         roc_aucs = [train_node(node)[1]['ROC AUC'] for node in self.nodes]
         print(np.mean(roc_aucs), np.std(roc_aucs), min(roc_aucs))
         mean_training_roc = np.mean(roc_aucs)
-
-        return mean_training_roc
+        min_roc_auc = min(roc_aucs)
+        std = np.std(roc_aucs)
+        return mean_training_roc, min_roc_auc, std
 
     def test(self):
         best_solution, best_fitness, report = self.heuristic_model.run_tests(self.objective_func)
-        solution_dict = TRANSLATOR.decode(best_solution)
+        solution_dict = PARAM_TRANSLATOR.decode(best_solution)
         print(json.dumps(solution_dict, indent=4))
         print(best_fitness)
 
         return solution_dict, best_fitness, report
 
-'''def metaheuristic_test(params):
-
-    def objective_func(solution):
-        new_params_dict = TRANSLATOR.decode(solution)
-        roc_aucs = []
-        for node in params:
-            _, stats = train_node(node, params_dict = new_params_dict)
-            roc_aucs.append(stats['ROC AUC'])
-        mean_training_roc = np.mean(roc_aucs)
-        return mean_training_roc
-        #return get_mean_training_roc(params, solution)
-
-    problem_constrained = {
-        "obj_func": objective_func,
-        "bounds": TRANSLATOR.to_bounds(),
-        "minmax": "max",
-        "log_to": "file",
-        "log_file": "result.log",         # Default value = "mealpy.log"
-    }
-
-    heuristic_model = PSO.OriginalPSO(epoch=6, pop_size=6)
-    g_best = heuristic_model.solve(problem_constrained, mode="process", n_workers=8)
-    solution_dict = TRANSLATOR.decode(g_best.solution)
-    fitness = g_best.target.fitness
-    print(json.dumps(solution_dict, indent=4))
-    print(fitness)
-
-    return solution_dict, fitness'''
+def optimize_params_for_classification(percentiles, go_graph, go_annotations, n_ids,
+        min_annotations, experiment_dir):
+    
+    go_lists = cluster_go_by_levels_and_freq(go_annotations, n_ids, 
+        percentiles, go_graph, min_annotations, True)
+    
+    clusters = list(go_lists.items())
+    params = []
+    for cluster_name, cluster_gos in clusters:
+        print('Creating params for', cluster_name, 'with', len(cluster_gos), 'targets')
+        params.append({
+            'cluster_name': cluster_name,
+            'test_go_set': cluster_gos,
+            'go_annotations': go_annotations
+        })
+    
+    with Pool(config['parsing_processes']) as pool:
+        _ = pool.map(prepare_data, params)
+    
+    meta = MetaheuristicTest(params)
+    solution_dict, fitness, report = meta.test()
+    meta_report_path = experiment_dir + '.optimization.txt'
+    open(meta_report_path, 'w').write(report)
+    return solution_dict
 
 if __name__ == '__main__':
     print(sys.argv)
+    assert sys.argv[1] in ['all', 'test']
+    assert sys.argv[2] in ['default', 'optimize']
     is_test = sys.argv[1] != 'all'
-    experiment_comment = sys.argv[2]
+    is_optimized = sys.argv[2] != 'default'
+    experiment_comment = sys.argv[3]
     timestamp = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
     if is_test:
         experiment_name = timestamp+'_TEST_'+experiment_comment.replace(" ","-")
     else:
         experiment_name = timestamp+'_'+experiment_comment.replace(" ","-")
+
+    experiment_dir = 'experiments/'+experiment_name
+    json_path = experiment_dir+'.json'
     print('Loading train/test ids')
     traintest_ids = open('input/traintest/ids.txt', 'r').read().split('\n')
     print(len(traintest_ids), 'proteins')
@@ -384,12 +387,16 @@ if __name__ == '__main__':
         ids_allowed=traintest_ids)
     go_graph = load_go_graph()
     percentiles = [40, 70, 90]
+
+    if is_optimized:
+        solution_dict = optimize_params_for_classification(percentiles, go_graph, 
+            go_annotations, len(traintest_ids), config['min_annotations'], experiment_dir)
+    else:
+        solution_dict = default_params
+
     go_lists = cluster_go_by_levels_and_freq(go_annotations, len(traintest_ids), 
         percentiles, go_graph, config['min_annotations'], is_test)
     print(go_lists.keys())
-    '''last_cluster = go_lists[list(go_lists.keys())[-1]]
-    test_go_set = last_cluster[-6:]
-    print(test_go_set)'''
 
     params = {
         'go_frequency_percentiles': percentiles,
@@ -397,9 +404,6 @@ if __name__ == '__main__':
     }
     for key, val in config.items():
         params[key] = val
-
-    experiment_dir = 'experiments/'+experiment_name
-    json_path = experiment_dir+'.json'
     experiment_json = {
         'id': timestamp,
         'comment': experiment_comment,
@@ -420,11 +424,6 @@ if __name__ == '__main__':
     
     with Pool(config['parsing_processes']) as pool:
         _ = pool.map(prepare_data, params)
-    
-    meta = MetaheuristicTest(params)
-    solution_dict, fitness, report = meta.test()
-    meta_report_path = experiment_dir + '.optimization.txt'
-    open(meta_report_path, 'w').write(report)
 
     for node in params:
         node['params_dict'] = solution_dict

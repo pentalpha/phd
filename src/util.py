@@ -253,7 +253,7 @@ def create_labels_matrix(labels: dict, ids_allowed: list, gos_allowed: list):
     return np.asarray(label_vecs)
 
 
-def load_dataset_from_dir(dirname: str, subset: list = [], to_load = ['taxa_profile', 'esm']):
+def load_dataset_from_dir(dirname: str, subset: list = [], to_load = ['taxa', 'esm']):
     if len(subset) == 0:
         ids_path = dirname+'/ids.txt'
         subset = open(ids_path, 'r').read().split('\n')

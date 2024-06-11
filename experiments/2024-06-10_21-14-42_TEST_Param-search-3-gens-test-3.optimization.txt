@@ -1,0 +1,219 @@
+
+Top 5 solutions at gen 0:
+Mean ROC AUC: 0.986957768137744
+Mean ROC AUC: 0.9871960339395429
+Mean ROC AUC: 0.987428368936141
+Mean ROC AUC: 0.9880588224906253
+Mean ROC AUC: 0.9907205434720083
+
+Top 5 solutions at gen 1:
+Mean ROC AUC: 0.9879679320539003
+Mean ROC AUC: 0.9880588224906253
+Mean ROC AUC: 0.9885512907689643
+Mean ROC AUC: 0.9895459374612813
+Mean ROC AUC: 0.9907205434720083
+
+Top 5 solutions at gen 2:
+Mean ROC AUC: 0.9895531668048866
+Mean ROC AUC: 0.98963375081397
+Mean ROC AUC: 0.9900727952761191
+Mean ROC AUC: 0.9902347373964583
+Mean ROC AUC: 0.9907205434720083
+Top 5 solutions:
+{
+    "esm_30": {
+        "dropout_rate": 0.4759494386264304,
+        "l1_dim": 619,
+        "l2_dim": 319,
+        "leakyrelu_1_alpha": 0.09396897907078457
+    },
+    "esm_33": {
+        "dropout_rate": 0.51941778875863,
+        "l1_dim": 640,
+        "l2_dim": 325,
+        "leakyrelu_1_alpha": 0.09651444668214718
+    },
+    "final": {
+        "batch_size": 207,
+        "dropout_rate": 0.47591571766766627,
+        "epochs": 38,
+        "final_dim": 265,
+        "learning_rate": 0.000578893007134412,
+        "patience": 9
+    },
+    "taxa": {
+        "dropout_rate": 0.5,
+        "l1_dim": 128,
+        "l2_dim": 64,
+        "leakyrelu_1_alpha": 0.1
+    },
+    "taxa_profile": {
+        "dropout_rate": 0.5011037293119674,
+        "l1_dim": 206,
+        "l2_dim": 124,
+        "leakyrelu_1_alpha": 0.3826315274625409
+    }
+}
+Mean ROC AUC: 0.9895531668048866
+{
+    "esm_30": {
+        "dropout_rate": 0.4617292189898642,
+        "l1_dim": 623,
+        "l2_dim": 371,
+        "leakyrelu_1_alpha": 0.11042110743880877
+    },
+    "esm_33": {
+        "dropout_rate": 0.5122891653816832,
+        "l1_dim": 644,
+        "l2_dim": 325,
+        "leakyrelu_1_alpha": 0.10324980286378069
+    },
+    "final": {
+        "batch_size": 201,
+        "dropout_rate": 0.49158932885704343,
+        "epochs": 38,
+        "final_dim": 258,
+        "learning_rate": 0.0005672807769003305,
+        "patience": 10
+    },
+    "taxa": {
+        "dropout_rate": 0.5,
+        "l1_dim": 128,
+        "l2_dim": 64,
+        "leakyrelu_1_alpha": 0.1
+    },
+    "taxa_profile": {
+        "dropout_rate": 0.49391777175611207,
+        "l1_dim": 199,
+        "l2_dim": 125,
+        "leakyrelu_1_alpha": 0.40042307966514923
+    }
+}
+Mean ROC AUC: 0.98963375081397
+{
+    "esm_30": {
+        "dropout_rate": 0.48360387876542865,
+        "l1_dim": 643,
+        "l2_dim": 374,
+        "leakyrelu_1_alpha": 0.1312324066317367
+    },
+    "esm_33": {
+        "dropout_rate": 0.4277164128707387,
+        "l1_dim": 594,
+        "l2_dim": 328,
+        "leakyrelu_1_alpha": 0.10409227140466366
+    },
+    "final": {
+        "batch_size": 184,
+        "dropout_rate": 0.47345115774852614,
+        "epochs": 41,
+        "final_dim": 255,
+        "learning_rate": 0.0004535984971031597,
+        "patience": 9
+    },
+    "taxa": {
+        "dropout_rate": 0.5,
+        "l1_dim": 128,
+        "l2_dim": 64,
+        "leakyrelu_1_alpha": 0.1
+    },
+    "taxa_profile": {
+        "dropout_rate": 0.4944934773297307,
+        "l1_dim": 216,
+        "l2_dim": 126,
+        "leakyrelu_1_alpha": 0.3497060446118988
+    }
+}
+Mean ROC AUC: 0.9900727952761191
+{
+    "esm_30": {
+        "dropout_rate": 0.45592356829537856,
+        "l1_dim": 643,
+        "l2_dim": 373,
+        "leakyrelu_1_alpha": 0.11582063707580423
+    },
+    "esm_33": {
+        "dropout_rate": 0.43597668266113265,
+        "l1_dim": 625,
+        "l2_dim": 305,
+        "leakyrelu_1_alpha": 0.0869035791274899
+    },
+    "final": {
+        "batch_size": 194,
+        "dropout_rate": 0.4581970963776644,
+        "epochs": 40,
+        "final_dim": 262,
+        "learning_rate": 0.0005479163093963868,
+        "patience": 10
+    },
+    "taxa": {
+        "dropout_rate": 0.5,
+        "l1_dim": 128,
+        "l2_dim": 64,
+        "leakyrelu_1_alpha": 0.1
+    },
+    "taxa_profile": {
+        "dropout_rate": 0.4875697406882424,
+        "l1_dim": 207,
+        "l2_dim": 127,
+        "leakyrelu_1_alpha": 0.324223516363882
+    }
+}
+Mean ROC AUC: 0.9902347373964583
+{
+    "esm_30": {
+        "dropout_rate": 0.42917982988280395,
+        "l1_dim": 652,
+        "l2_dim": 343,
+        "leakyrelu_1_alpha": 0.09340220089814522
+    },
+    "esm_33": {
+        "dropout_rate": 0.4238639150387509,
+        "l1_dim": 593,
+        "l2_dim": 354,
+        "leakyrelu_1_alpha": 0.08573378207646243
+    },
+    "final": {
+        "batch_size": 183,
+        "dropout_rate": 0.5199892464162708,
+        "epochs": 41,
+        "final_dim": 230,
+        "learning_rate": 0.0005828927903457179,
+        "patience": 10
+    },
+    "taxa": {
+        "dropout_rate": 0.5,
+        "l1_dim": 128,
+        "l2_dim": 64,
+        "leakyrelu_1_alpha": 0.1
+    },
+    "taxa_profile": {
+        "dropout_rate": 0.49400654478381467,
+        "l1_dim": 190,
+        "l2_dim": 125,
+        "leakyrelu_1_alpha": 0.15534031370721027
+    }
+}
+Mean ROC AUC: 0.9907205434720083
+('esm_30', 'dropout_rate') mean: 0.4612771869119811; std:0.018830093112042215
+('esm_30', 'l1_dim') mean: 636.6096781019985; std:12.83043466912134
+('esm_30', 'l2_dim') mean: 356.60313674621136; std:21.56341671066939
+('esm_30', 'leakyrelu_1_alpha') mean: 0.10896906622305588; std:0.01422700730030681
+('esm_33', 'dropout_rate') mean: 0.46385279294218706; std:0.04269795493984344
+('esm_33', 'l1_dim') mean: 619.7047115903613; std:21.723688387306886
+('esm_33', 'l2_dim') mean: 327.87113641237477; std:15.673093468841545
+('esm_33', 'leakyrelu_1_alpha') mean: 0.09529877643090877; std:0.00779731600120642
+('final', 'batch_size') mean: 194.2132478588888; std:9.47216146355969
+('final', 'dropout_rate') mean: 0.4838285094134342; std:0.02095280532064338
+('final', 'epochs') mean: 40.044024746936906; std:1.4207252549315967
+('final', 'final_dim') mean: 254.56109551430532; std:12.475489331177062
+('final', 'learning_rate') mean: 0.0005461162761760014; std:4.7827903449495176e-05
+('final', 'patience') mean: 10.021830419016819; std:0.3562991289584067
+('taxa', 'dropout_rate') mean: 0.5; std:0.0
+('taxa', 'l1_dim') mean: 128.0; std:0.0
+('taxa', 'l2_dim') mean: 64.0; std:0.0
+('taxa', 'leakyrelu_1_alpha') mean: 0.1; std:0.0
+('taxa_profile', 'dropout_rate') mean: 0.49421825277397347; std:0.004285402146372305
+('taxa_profile', 'l1_dim') mean: 203.95344714926938; std:8.712455422187174
+('taxa_profile', 'l2_dim') mean: 125.96170307664038; std:1.1191202081780334
+('taxa_profile', 'leakyrelu_1_alpha') mean: 0.32246489636213627; std:0.0876051378307661

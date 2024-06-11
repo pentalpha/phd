@@ -1,0 +1,70 @@
+[
+    {
+        "esm_30": {
+            "l1_dim": 600,
+            "l2_dim": 300,
+            "dropout_rate": 0.5,
+            "leakyrelu_1_alpha": 0.1
+        },
+        "esm_33": {
+            "l1_dim": 600,
+            "l2_dim": 300,
+            "dropout_rate": 0.5,
+            "leakyrelu_1_alpha": 0.1
+        },
+        "taxa": {
+            "l1_dim": 128,
+            "l2_dim": 64,
+            "dropout_rate": 0.5,
+            "leakyrelu_1_alpha": 0.1
+        },
+        "taxa_profile": {
+            "l1_dim": 128,
+            "l2_dim": 64,
+            "dropout_rate": 0.5,
+            "leakyrelu_1_alpha": 0.1
+        },
+        "final": {
+            "dropout_rate": 0.5,
+            "final_dim": 256,
+            "patience": 10,
+            "epochs": 40,
+            "learning_rate": 0.0003,
+            "batch_size": 256
+        }
+    },
+    {
+        "esm_30": {
+            "dropout_rate": 0.42917982988280395,
+            "l1_dim": 652,
+            "l2_dim": 343,
+            "leakyrelu_1_alpha": 0.09340220089814522
+        },
+        "esm_33": {
+            "dropout_rate": 0.4238639150387509,
+            "l1_dim": 593,
+            "l2_dim": 354,
+            "leakyrelu_1_alpha": 0.08573378207646243
+        },
+        "final": {
+            "batch_size": 183,
+            "dropout_rate": 0.5199892464162708,
+            "epochs": 41,
+            "final_dim": 230,
+            "learning_rate": 0.0005828927903457179,
+            "patience": 10
+        },
+        "taxa": {
+            "dropout_rate": 0.5,
+            "l1_dim": 128,
+            "l2_dim": 64,
+            "leakyrelu_1_alpha": 0.1
+        },
+        "taxa_profile": {
+            "dropout_rate": 0.49400654478381467,
+            "l1_dim": 190,
+            "l2_dim": 125,
+            "leakyrelu_1_alpha": 0.15534031370721027
+        }
+    }
+]

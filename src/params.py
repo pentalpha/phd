@@ -5,77 +5,11 @@ import random
 
 import numpy as np
 
-default_params = {
-    'esm_30': {
-        'l1_dim': 600,
-        'l2_dim': 300,
-        'dropout_rate': 0.5,
-        'leakyrelu_1_alpha': 0.1
-    },
-    'esm_33': {
-        'l1_dim': 600,
-        'l2_dim': 300,
-        'dropout_rate': 0.5,
-        'leakyrelu_1_alpha': 0.1
-    },
-    'taxa': {
-        'l1_dim': 128,
-        'l2_dim': 64,
-        'dropout_rate': 0.5,
-        'leakyrelu_1_alpha': 0.1
-    },
-    'taxa_profile': {
-        'l1_dim': 128,
-        'l2_dim': 64,
-        'dropout_rate': 0.5,
-        'leakyrelu_1_alpha': 0.1
-    },
-    'final': {
-        'dropout_rate': 0.5,
-        'final_dim': 256,
-        'patience': 10,
-        'epochs': 40,
-        'learning_rate': 0.0003,
-        'batch_size': 256
-    }
-}
+param_sets = json.load(open('experiments/param_sets.json', 'r'))
+
+default_params = param_sets[-1]
 
 param_bounds = {
-    'esm_30': {
-        'l1_dim': [600,600],
-        'l2_dim': [300,300],
-        'dropout_rate': [0.5, 0.5],
-        'leakyrelu_1_alpha': [0.1, 0.1]
-    },
-    'esm_33': {
-        'l1_dim': [600,600],
-        'l2_dim': [300,300],
-        'dropout_rate': [0.5, 0.5],
-        'leakyrelu_1_alpha': [0.1, 0.1]
-    },
-    'taxa': {
-        'l1_dim': [128, 128],
-        'l2_dim': [64, 64],
-        'dropout_rate': [0.5, 0.5],
-        'leakyrelu_1_alpha': [0.1, 0.1],
-    },
-    'taxa_profile': {
-        'l1_dim': [64, 300],
-        'l2_dim': [32, 160],
-        'dropout_rate': [0.3, 0.8],
-        'leakyrelu_1_alpha': [0.05, 0.2],
-    },
-    'final': {
-        'dropout_rate': [0.5,0.5],
-        'final_dim': [256,256],
-        'patience': [10,10],
-        'epochs': [40,40],
-        'learning_rate': [0.0003,0.0003],
-        'batch_size': [256,256]
-    }
-}
-
-param_bounds2 = {
     'esm_30': {
         'l1_dim': [400,700],
         'l2_dim': [150,400],
@@ -110,6 +44,43 @@ param_bounds2 = {
     }
 }
 
+param_bounds2 = {
+    'esm_30': {
+        'l1_dim': [500,700],
+        'l2_dim': [250,400],
+        'dropout_rate': [0.4, 0.55],
+        'leakyrelu_1_alpha': [0.06, 0.14]
+    },
+    'esm_33': {
+        'l1_dim': [500,700],
+        'l2_dim': [250,400],
+        'dropout_rate': [0.4, 0.55],
+        'leakyrelu_1_alpha': [0.06, 0.14]
+    },
+    'taxa': {
+        'l1_dim': [100, 240],
+        'l2_dim': [64, 140],
+        'dropout_rate': [0.4, 0.6],
+        'leakyrelu_1_alpha': [0.03, 0.15],
+    },
+    'taxa_profile': {
+        'l1_dim': [160, 240],
+        'l2_dim': [100, 140],
+        'dropout_rate': [0.45, 0.55],
+        'leakyrelu_1_alpha': [0.03, 0.9],
+    },
+    'final': {
+        'dropout_rate': [0.4,0.6],
+        'final_dim': [200,300],
+        'patience': [7,13],
+        'epochs': [35,45],
+        'learning_rate': [0.0003,0.0006],
+        'batch_size': [180,300]
+    }
+}
+
+network_mandatory_params = ['l1_dim', 'l2_dim', 'dropout_rate', 'leakyrelu_1_alpha']
+
 param_types = {
     'l1_dim': int,
     'l2_dim': int,
@@ -136,6 +107,10 @@ class ProblemTranslator:
                 self.lower_bounds.append(lower)
                 self.upper_bounds.append(upper)
                 self.params_list.append((key, name))
+        
+        print('Param bounds:')
+        for i in range(len(self.params_list)):
+            print(self.params_list[i], self.upper_bounds[i], self.lower_bounds[i])
 
     def to_bounds(self):
         return FloatVar(lb=self.lower_bounds, ub=self.upper_bounds)
@@ -144,15 +119,35 @@ class ProblemTranslator:
         new_param_dict = {}
         for first, second in self.params_list:
             new_param_dict[first] = {}
-        for i in range(len(vec)):
+        for i in range(len(self.params_list)):
             first, second = self.params_list[i]
             converter = param_types[second]
             val = converter(vec[i])
             new_param_dict[first][second] = val
         
+        for param_group_name, params in new_param_dict.items():
+            if param_group_name.startswith('esm') or param_group_name.startswith('taxa'):
+                for param_name in network_mandatory_params:
+                    if not param_name in params:
+                        print(new_param_dict)
+                        print('Cannot find', param_name, 'in', params)
+                        raise Exception("Could not find " + param_name)
+        
         return new_param_dict
 
-TRANSLATOR = ProblemTranslator()
+    def encode(self, param_dict):
+        vec = []
+        for i in range(len(self.params_list)):
+            first, second = self.params_list[i]
+            original = param_dict[first][second]
+            val = float(original)
+            vec.append(val)
+
+        print('Encoded solution', param_dict, 'to')
+        print(vec)
+        return vec
+
+PARAM_TRANSLATOR = ProblemTranslator()
 
 class RandomSearchMetaheuristic:
     def __init__(self, pop_size, upper_bounds, lower_bounds, n_jobs = 24) -> None:
@@ -165,35 +160,79 @@ class RandomSearchMetaheuristic:
     
     def generate_population(self):
         self.population = []
+        for param_dict in param_sets:
+            encoded = PARAM_TRANSLATOR.encode(param_dict)
+            self.population.append(encoded)
+        
         for _ in range(self.pop_size):
             new_solution = []
             for lb, ub in self.bounds:
                 val = random.uniform(lb, ub)
                 new_solution.append(val)
             self.population.append(new_solution)
+        
+    def new_population(self, top_best: list):
+        new_bounds = []
+        for i in range(len(PARAM_TRANSLATOR.params_list)):
+            param_name = PARAM_TRANSLATOR.params_list[i]
+            param_values = [s[i] for s, f in top_best]
+            lb, ub = self.bounds[i]
+            new_lb = max(lb, min(param_values))
+            new_up = min(ub, max(param_values))
+            new_bounds.append((new_lb, new_up))
+            print(param_name, ' new min/max is ', new_bounds[-1])
+        
+        new_pop = []
+        for _ in range(self.pop_size):
+            new_solution = []
+            for lb, ub in new_bounds:
+                val = random.uniform(lb, ub)
+                new_solution.append(val)
+            new_pop.append(new_solution)
+        return new_pop
     
-    def run_tests(self, objective_func):
-
-        with Pool(self.n_jobs) as pool:
-            fitness_vec = pool.map(objective_func, self.population)
-        
-        solutions_with_fitness = [(self.population[i], fitness_vec[i])
-            for i in range(self.pop_size)]
-        
-        solutions_with_fitness.sort(key = lambda tp: tp[1])
-
-        best_solution, best_fitness = solutions_with_fitness[-1]
-        n_top = int(len(self.population) / 2)
+    def sort_solutions(solutions):
+        #First: Mean fitness, Second: Min fitness, Third: smaller standard deviation
+        solutions.sort(key = lambda tp: (round(tp[1][0], 3), round(tp[1][1], 3), -tp[1][2]))
+    
+    def run_tests(self, objective_func, gens=3, top_perc = 0.5):
+        all_solutions = []
         report = []
-        top_best = solutions_with_fitness[-n_top:]
+
+        for gen in range(gens):
+            print('Gen', gen)
+
+            with Pool(self.n_jobs) as pool:
+                fitness_vec = pool.map(objective_func, self.population)
+            
+            solutions_with_fitness = [(self.population[i], fitness_vec[i])
+                for i in range(self.pop_size)]
+            n_top = int(self.pop_size * top_perc)
+            all_solutions += solutions_with_fitness
+            RandomSearchMetaheuristic.sort_solutions(all_solutions)
+            top_best = all_solutions[-n_top:]
+            top_msg = '\nTop ' + str(n_top) + ' solutions at gen ' + str(gen) + ':'
+            report.append(top_msg)
+            print(top_msg)
+            for s, f in top_best:
+                print('Mean ROC AUC: ' + str(f))
+                report.append('Mean ROC AUC: ' + str(f))
+            if gen < gens:
+                self.population = self.new_population(top_best)
+
+        n_top = int(len(self.population)*top_perc)
+        if n_top > 12:
+            n_top = 12
+        top_best = all_solutions[-n_top:]
+        best_solution, best_fitness = all_solutions[-1]
+        report.append('Top ' + str(n_top) + ' solutions:')
         for s, f in top_best:
-            report.append('Top ' + str(n_top) + ' solutions:')
-            solution_str = json.dumps(TRANSLATOR.decode(s), indent=4)
+            solution_str = json.dumps(PARAM_TRANSLATOR.decode(s), indent=4)
             report += solution_str.split('\n')
-            report.append('Mean ROC AUC: ' + str(f))
+            report.append('ROC AUC: ' + str(f))
         
-        for i in range(len(TRANSLATOR.params_list)):
-            param_name = TRANSLATOR.params_list[i]
+        for i in range(len(PARAM_TRANSLATOR.params_list)):
+            param_name = PARAM_TRANSLATOR.params_list[i]
             param_values = [s[i] for s, f in top_best]
             std = np.std(param_values)
             mean = np.mean(param_values)
