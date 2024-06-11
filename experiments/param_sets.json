@@ -66,5 +66,39 @@
             "l2_dim": 125,
             "leakyrelu_1_alpha": 0.15534031370721027
         }
+    },
+    {
+        "esm_30": {
+            "dropout_rate": 0.4517569208857016,
+            "l1_dim": 519,
+            "l2_dim": 298,
+            "leakyrelu_1_alpha": 0.06968637611708581
+        },
+        "esm_33": {
+            "dropout_rate": 0.44854213572815765,
+            "l1_dim": 647,
+            "l2_dim": 366,
+            "leakyrelu_1_alpha": 0.10634783870870138
+        },
+        "final": {
+            "batch_size": 199,
+            "dropout_rate": 0.4196180773603897,
+            "epochs": 43,
+            "final_dim": 272,
+            "learning_rate": 0.0005305207742443329,
+            "patience": 7
+        },
+        "taxa": {
+            "dropout_rate": 0.43020661328190424,
+            "l1_dim": 197,
+            "l2_dim": 122,
+            "leakyrelu_1_alpha": 0.12394165014338973
+        },
+        "taxa_profile": {
+            "dropout_rate": 0.5055523381987773,
+            "l1_dim": 200,
+            "l2_dim": 124,
+            "leakyrelu_1_alpha": 0.22059240476642578
+        }
     }
 ]
