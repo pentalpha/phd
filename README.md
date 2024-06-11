@@ -43,10 +43,12 @@ $ snakemake sep_validation --cores 1
 
 The sep_validation task will call the tasks download_go, download_goa, download_uniprot, annotated_protein_list, create_features, create_taxon_profiles and list_labels
 
-### Run a training experiment
+### Run training experiments
 
 ```
 $ python experiment.py test default "A test on a small part of the GO MF network without optimal parameter search"
 $ python experiment.py test optimize "A test on a small part of the GO MF network with optimal parameter search"
-$ python experiment.py test optimize "Train on all of the GO MF network with optimal parameter search"
+$ python experiment.py all optimize "Train on all of the GO MF network with optimal parameter search"
 ```
+
+The results will be stored in the 'experiments' directory.
