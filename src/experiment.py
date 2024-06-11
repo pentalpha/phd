@@ -311,7 +311,7 @@ class MetaheuristicTest():
             "log_file": "result.log",         # Default value = "mealpy.log"
         }'''
 
-        self.heuristic_model = RandomSearchMetaheuristic(60, 
+        self.heuristic_model = RandomSearchMetaheuristic(80, 
             PARAM_TRANSLATOR.upper_bounds, PARAM_TRANSLATOR.lower_bounds,
             n_jobs=8)
     

@@ -12,7 +12,7 @@ down_input.sh
 *.bak
 experiments/*.tsv
 experiments/*/*.tsv
-experiments/*/*.png
-experiments/*.png
+#experiments/*/*.png
+#experiments/*.png
 down_experiments.sh
 experiments/.spyproject
