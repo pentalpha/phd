@@ -8,7 +8,10 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 import matplotlib.patches as patches
+import matplotlib as mpl
+import matplotlib.cm as cm
 from glob import glob
+
 from validation_external import results_deepfri_validation_path
 
 def plot_experiment(input_json):
@@ -201,6 +204,162 @@ def plot_nodes_graph(experiment_json_path):
     output_path = artifacts_dir+'/nodes_graph.png'
     fig.savefig(output_path, dpi=200)
 
+def plot_nodes_graph2(experiment_json_path):
+    artifacts_dir = experiment_json_path.rstrip('.json')
+    if not path.exists(artifacts_dir):
+        mkdir(artifacts_dir)
+    try:
+        experiment = json.load(open(experiment_json_path, 'r'))
+    except JSONDecodeError as err:
+        print(err)
+        print('Cannot load', experiment_json_path)
+        return
+    data = []
+    
+    if not 'validation' in experiment:
+        return
+    else:
+        if type(experiment['validation']) != dict:
+            print('Validation field in', experiment_json_path, 'is not valid:')
+            print(experiment['validation'])
+            return
+    for group, metrics in experiment['validation'].items():
+        if group != 'all':
+            data.append([group, metrics])
+        else:
+            model_roc = metrics['roc_auc_ma_bin']
+            model_n_labels = len(experiment['validation_all_goids'])
+    
+    
+    new_names, freq_min_max = convert_name_to_abc([x for x,_ in data])
+    for i in range(len(data)):
+        data[i][0] = new_names[data[i][0]]
+
+    n_labels = {}
+    for group, info in experiment['classifiers'].items():
+        if group != 'all':
+            nodename = new_names[group.split('_N-')[0]]
+            n_labels[nodename] = len(info['labels'])
+
+        
+    x = []
+    y = []
+    n_goids = []
+    labels = []
+    hamming_loss = []
+    precision_score = []
+    recall_score = []
+    accuracy_score = []
+    roc_auc = []
+    global_min = 0.55
+    for node_name, metrics in data:
+        level_str, x_pos_str = node_name.split('_')
+        level = int(level_str.split('-')[1])
+        x_pos = letter_to_int(x_pos_str)
+        
+        x.append(x_pos)
+        y.append(level)
+        labels.append(node_name)
+        n_goids.append(n_labels[node_name])
+        hamming_loss.append(metrics['hamming_loss'])
+        precision_score.append(max(global_min, metrics['precision_score']))
+        recall_score.append(max(global_min, metrics['recall_score']))
+        accuracy_score.append(max(global_min, metrics['accuracy_score']))
+        roc_auc.append(max(global_min, metrics['roc_auc_ma_bin']))
+    
+    deepest_level = max(y)
+    levels_width = max(x)
+
+    norm = mpl.colors.Normalize(vmin=global_min, vmax=1.0)
+    cmap = cm.winter
+    m = cm.ScalarMappable(norm=norm, cmap=cmap)
+    
+    fig, ax = plt.subplots(1,1, figsize=(16,12))
+    ax.scatter([x1+0.5 for x1 in x], y, c='white')
+
+    roc_auc_color = m.to_rgba(model_roc)
+    big_box_x = -0.125
+    big_box_y = 0.25
+    big_box_w = levels_width + 0.925
+    big_box_h = deepest_level+1
+    roc_auc_rect = patches.Rectangle((big_box_x, big_box_y), big_box_w, big_box_h, 
+        linewidth=2, facecolor=roc_auc_color, edgecolor='white')
+    ax.add_patch(roc_auc_rect)
+    ax.text(big_box_x+big_box_w/2, big_box_y+big_box_h-0.33, 
+        'ROC='+str(round(model_roc, 4)),
+        horizontalalignment='center',
+        verticalalignment='bottom',
+        fontsize=18)
+    ax.text(big_box_x+big_box_w-0.05, big_box_y+big_box_h-0.1,
+        str(model_n_labels) + " GO IDs",
+        horizontalalignment='right',
+        verticalalignment='bottom',
+        fontsize=16)
+    ax.text(big_box_x+big_box_w/2, big_box_y+big_box_h+0.1, 
+        "Ensemble Model",
+        horizontalalignment='center',
+        verticalalignment='top',
+        fontsize=18)
+
+    for index in range(len(x)):
+        x_index = x[index]
+        current_y = y[index]
+        label = labels[index]
+        n_ids = n_goids[index]
+        '''current_hamming_loss = hamming_loss[index]
+        current_precision_score = precision_score[index]
+        current_recall_score = recall_score[index]
+        current_accuracy_score = accuracy_score[index]
+        minus_hl = 1.0 - current_hamming_loss
+        minus_hl = minus_hl*minus_hl*minus_hl'''
+        current_roc_auc = roc_auc[index]
+        
+        roc_auc_color = m.to_rgba(current_roc_auc)
+        roc_auc_pos = (x_index, current_y-0.4)
+        roc_auc_w = 0.7
+        roc_auc_h = 0.7
+        roc_auc_rect = patches.Rectangle(roc_auc_pos, roc_auc_w, roc_auc_h, 
+            linewidth=2, facecolor=roc_auc_color, edgecolor='white')
+        ax.text(roc_auc_pos[0]+(roc_auc_w)/2, roc_auc_pos[1]+0.35, 
+            'ROC='+str(round(current_roc_auc, 2)),
+            horizontalalignment='center',
+            verticalalignment='center')
+        ax.text(roc_auc_pos[0]+(roc_auc_w)/2, roc_auc_pos[1]+roc_auc_h+0.1, 
+            label,
+            horizontalalignment='center',
+            verticalalignment='center')
+        
+        ax.text(roc_auc_pos[0]+roc_auc_w-0.025, roc_auc_pos[1]+roc_auc_h-0.07, 
+            str(n_ids) + " GO IDs",
+            horizontalalignment='right',
+            verticalalignment='bottom')
+        
+        print(x_index, x_index+roc_auc_w, current_y+1, 0.5, 1)
+        ax.add_patch(roc_auc_rect)
+        #ax.add_patch(prec_rect)
+        
+    #ax.get_xaxis().set_visible(False)
+    #ax.set_xscale('log', base=30)
+    ax.set_ylabel("Gene Ontology Level", fontsize=18)
+    ax.set_xlabel("Models in Layer", fontsize=18)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.set_xticks([0.4,1.4,2.4,3.4], ['A', 'B', 'C', 'D'])
+    ax.set_yticks([1,2,3,4,5,6,7])
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position('top') 
+
+    ax.set_ylim(ax.get_ylim()[::-1])
+    fig.colorbar(m, ax=ax, label='Metric Value')
+    ax.set_title("ROC AUC of Base Models and Ensemble", fontsize=22, pad=80)
+    fig.tight_layout()
+    #plt.show()
+    
+    output_path = artifacts_dir+'/nodes_graph.png'
+    fig.savefig(output_path, dpi=200)
+
 def name_to_date(name):
     return datetime.strptime(name.split('_')[0]+'_'+name.split('_')[1], '%Y-%m-%d_%H-%M-%S')
 
@@ -274,8 +433,6 @@ def plot_experiments(plot_tests):
     ax.legend(by_label.values(), by_label.keys())
     ax.set_title("Protein GO Classification - ROC AUC")
     fig.tight_layout()
-    #ax.set_yticks(x_indexes)
-    #ax.set_yticklabels(names)
     #ax.set_xlim(ax.get_xlim()[::-1])
     #ax.set_ylim(ax.get_ylim()[::-1])
 
@@ -287,15 +444,11 @@ def plot_experiments(plot_tests):
     fig.savefig(output_path, dpi=200)
     
 def plot_progress():
+    experiments = glob('experiments/202*.json')
+    for exp in experiments:
+        plot_nodes_graph2(exp)
     plot_experiments(True)
     plot_experiments(False)
 
 if __name__ == "__main__":
-    '''experiments = ['../experiments/2024-02-21_09-14-59_Full-training-2.validated.json',
-       '../experiments/2024-02-27_16-04-20_Full-training-With-Early-Stopping.json',
-       '../experiments/2024-02-29_23-54-28_Max-40-epochs.json']
-    for exp in experiments:
-        plot_nodes_graph(exp)
-        #plot_experiment(exp)'''
-    
     plot_progress()
