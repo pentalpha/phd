@@ -12,6 +12,7 @@ import matplotlib as mpl
 import matplotlib.cm as cm
 from glob import glob
 
+from util import run_command
 from validation_external import results_deepfri_validation_path
 
 def plot_experiment(input_json):
@@ -360,6 +361,8 @@ def plot_nodes_graph2(experiment_json_path):
     output_path = artifacts_dir+'/nodes_graph.png'
     fig.savefig(output_path, dpi=200)
 
+    return output_path
+
 def name_to_date(name):
     return datetime.strptime(name.split('_')[0]+'_'+name.split('_')[1], '%Y-%m-%d_%H-%M-%S')
 
@@ -445,8 +448,15 @@ def plot_experiments(plot_tests):
     
 def plot_progress():
     experiments = glob('experiments/202*.json')
+    plots = []
+    experiments.sort()
     for exp in experiments:
-        plot_nodes_graph2(exp)
+        output_path = plot_nodes_graph2(exp)
+        if output_path and not 'TEST' in exp:
+            if path.exists(output_path):
+                plots.append(output_path)
+    print('Saving', plots[-1], 'as latest model plot')
+    run_command(['cp', plots[-1], 'experiments/latest_model.png'])
     plot_experiments(True)
     plot_experiments(False)
 
