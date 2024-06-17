@@ -238,30 +238,37 @@ def plot_experiments(plot_tests):
                     print('No node validation at', p)
 
     mean_roc_auc.sort(key=lambda x: x[0])
+    dates_labels = [m[0] for m in mean_roc_auc]
+    indexes = [i for i in range(len(mean_roc_auc))]
+    mean_vals = [m[1] for m in mean_roc_auc]
+
+    date_to_index = {dates_labels[i]: i for i in range(len(dates_labels))}
+
     for nodename, vals in nodes_roc_auc.items():
           vals.sort(key=lambda x: x[0])
     
     fig, ax = plt.subplots(1,1, figsize=(12,8))
     #fig.gca().invert_xaxis()
 
-    mean_dates = [m[0] for m in mean_roc_auc]
-    mean_vals = [m[1] for m in mean_roc_auc]
+    
     
     for nodename, vals in nodes_roc_auc.items():
         node_dates = [d for d, roc in vals]
         node_vals = [roc for d, roc in vals]
         #print(node_dates)
         #print(node_vals)
-        ax.plot(node_dates, node_vals, label='Node ROC AUC', marker='o', linewidth=2, alpha=0.5, color='lightblue')
+        node_indexes = [date_to_index[d] for d in node_dates]
+        ax.plot(node_indexes, node_vals, label='Node ROC AUC', marker='o', linewidth=2, alpha=0.5, color='lightblue')
 
     deepfri_val = json.load(open(results_deepfri_validation_path, 'r'))
     deepfri_postproc_roc_auc = deepfri_val['validation']['postprocessed']['roc_auc_ma_bin_raw']
-    ax.hlines(deepfri_postproc_roc_auc, min(mean_dates), max(mean_dates), linewidth=8, 
+    ax.hlines(deepfri_postproc_roc_auc, min(indexes), max(indexes), linewidth=8, 
         color='orange', label='DeepFRI ROC AUC', linestyles='--')
     #print(mean_dates)
     #print(mean_vals)
-    ax.plot(mean_dates, mean_vals, label='Mean ROC AUC', linewidth=10, color='blue')
-
+    ax.plot(indexes, mean_vals, label='Mean ROC AUC', linewidth=10, color='blue')
+    dates_labels_str = [str(d).split(' ')[0] for d in dates_labels]
+    ax.set_xticks(indexes, dates_labels_str, rotation=45, ha="right")
     handles, labels = fig.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys())
