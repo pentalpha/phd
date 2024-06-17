@@ -25,7 +25,7 @@ Comparison with other software:
 - DeepFRI: [github.com/flatironinstitute/DeepFRI](https://github.com/flatironinstitute/DeepFRI) 
 
 Current state of the classification nodes:
-![Classification nodes](experiments/2024-06-11_00-39-30_Param-search-3-ge/nodes_graph.png)
+![Classification nodes](experiments/2024-06-11_09-57-13_Param-search-3-gens-with-taxa-profile/nodes_graph.png)
 
 ### Instalation
 
