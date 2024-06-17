@@ -11,6 +11,8 @@ goa_parsed_frequent = 'databases/goa_parsed_frequent.tsv.gz'
 
 uniprot_fasta = "databases/uniprot_sprot.fasta.gz"
 go_basic = "databases/go-basic.obo"
+interpro_raw = config['interpro_dir'] + '/protein2ipr.dat.gz'
+interpro_filtered = config['interpro_dir'] + '/interpro_by_protein.tsv.gz'
 
 #quickgo_expanded = "input/quickgo_expanded.tsv.gz"
 proteins_for_learning = "input/proteins.fasta"
@@ -77,6 +79,14 @@ rule create_taxon_profiles:
         features_taxon_profile_path
     shell:
         "conda run --live-stream -n plm python src/calc_taxon_dist.py"
+
+rule filter_interpro_db:
+    input:
+        input_features_ids_path
+    output:
+        interpro_filtered
+    shell:
+        "conda run --live-stream -n plm python src/interpro.py"
 
 rule list_labels:
     input:
