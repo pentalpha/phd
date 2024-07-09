@@ -224,28 +224,41 @@ def plot_nodes_graph2(experiment_json_path):
             print('Validation field in', experiment_json_path, 'is not valid:')
             print(experiment['validation'])
             return
+    print(experiment_json_path)
     for group, metrics in experiment['validation'].items():
+        
         if group != 'all':
+            #test_results = experiment['classifiers'][group]['results']
+            #metrics['proteins'] = test_results['Proteins']
             data.append([group, metrics])
         else:
             model_roc = metrics['roc_auc_ma_bin']
             model_n_labels = len(experiment['validation_all_goids'])
+            if 'n_traintest_proteins' in experiment['params']:
+                model_proteins = experiment['params']['n_traintest_proteins']
+            else:
+                model_proteins = 0
     
     
     new_names, freq_min_max = convert_name_to_abc([x for x,_ in data])
     for i in range(len(data)):
         data[i][0] = new_names[data[i][0]]
 
+    n_proteins_by_node = {}
     n_labels = {}
     for group, info in experiment['classifiers'].items():
         if group != 'all':
             nodename = new_names[group.split('_N-')[0]]
             n_labels[nodename] = len(info['labels'])
+            if 'Proteins' in info['results']:
+                n_proteins_by_node[nodename] = info['results']['Proteins']
+            else:
+                n_proteins_by_node[nodename] = 0
 
-        
     x = []
     y = []
     n_goids = []
+    n_proteins = []
     labels = []
     hamming_loss = []
     precision_score = []
@@ -263,6 +276,7 @@ def plot_nodes_graph2(experiment_json_path):
         labels.append(node_name)
         n_goids.append(n_labels[node_name])
         hamming_loss.append(metrics['hamming_loss'])
+        n_proteins.append(n_proteins_by_node[node_name])
         precision_score.append(max(global_min, metrics['precision_score']))
         recall_score.append(max(global_min, metrics['recall_score']))
         accuracy_score.append(max(global_min, metrics['accuracy_score']))
@@ -296,6 +310,11 @@ def plot_nodes_graph2(experiment_json_path):
         horizontalalignment='right',
         verticalalignment='bottom',
         fontsize=16)
+    ax.text(big_box_x+0.05, big_box_y+big_box_h-0.1,
+        str(model_proteins) + " Proteins",
+        horizontalalignment='left',
+        verticalalignment='bottom',
+        fontsize=16)
     ax.text(big_box_x+big_box_w/2, big_box_y+big_box_h+0.1, 
         "Ensemble Model",
         horizontalalignment='center',
@@ -307,6 +326,7 @@ def plot_nodes_graph2(experiment_json_path):
         current_y = y[index]
         label = labels[index]
         n_ids = n_goids[index]
+        train_proteins = n_proteins[index]
         '''current_hamming_loss = hamming_loss[index]
         current_precision_score = precision_score[index]
         current_recall_score = recall_score[index]
@@ -333,6 +353,10 @@ def plot_nodes_graph2(experiment_json_path):
         ax.text(roc_auc_pos[0]+roc_auc_w-0.025, roc_auc_pos[1]+roc_auc_h-0.07, 
             str(n_ids) + " GO IDs",
             horizontalalignment='right',
+            verticalalignment='bottom')
+        ax.text(roc_auc_pos[0]+0.025, roc_auc_pos[1]+roc_auc_h-0.07, 
+            str(train_proteins) + " Proteins",
+            horizontalalignment='left',
             verticalalignment='bottom')
         
         print(x_index, x_index+roc_auc_w, current_y+1, 0.5, 1)
@@ -375,7 +399,8 @@ def plot_experiments(plot_tests):
     else:
         experiments = [e for e in experiments if not '_TEST_' in e]
     mean_roc_auc = []
-    nodes_roc_auc = {}
+    q1_roc_auc = []
+    q3_roc_auc = []
     for p in experiments:
         print(p)
         experiment = None
@@ -390,12 +415,14 @@ def plot_experiments(plot_tests):
                     name = path.basename(p).rstrip('.json')
                     new_date = name_to_date(name)
                     new_mean = experiment['validation_mean_metrics']['roc_auc_ma_bin']
-                    mean_roc_auc.append((new_date, new_mean))
+                    
+                    base_model_rocs = []
                     for nodename, metrics in experiment['validation'].items():
                         if nodename.startswith('Level-'):
-                            if not nodename in nodes_roc_auc:
-                                nodes_roc_auc[nodename] = []
-                            nodes_roc_auc[nodename].append((new_date, metrics['roc_auc_ma_bin']))
+                            base_model_rocs.append(metrics['roc_auc_ma_bin'])
+                    q1 = np.percentile(base_model_rocs, 25)
+                    q3 = np.percentile(base_model_rocs, 75)
+                    mean_roc_auc.append((new_date, new_mean, q1, q3))
                 else:
                     print('No node validation at', p)
 
@@ -403,24 +430,13 @@ def plot_experiments(plot_tests):
     dates_labels = [m[0] for m in mean_roc_auc]
     indexes = [i for i in range(len(mean_roc_auc))]
     mean_vals = [m[1] for m in mean_roc_auc]
+    q1_vals = [m[2] for m in mean_roc_auc]
+    q3_vals = [m[3] for m in mean_roc_auc]
 
     date_to_index = {dates_labels[i]: i for i in range(len(dates_labels))}
-
-    for nodename, vals in nodes_roc_auc.items():
-          vals.sort(key=lambda x: x[0])
     
     fig, ax = plt.subplots(1,1, figsize=(12,8))
     #fig.gca().invert_xaxis()
-
-    
-    
-    for nodename, vals in nodes_roc_auc.items():
-        node_dates = [d for d, roc in vals]
-        node_vals = [roc for d, roc in vals]
-        #print(node_dates)
-        #print(node_vals)
-        node_indexes = [date_to_index[d] for d in node_dates]
-        ax.plot(node_indexes, node_vals, label='Node ROC AUC', marker='o', linewidth=2, alpha=0.5, color='lightblue')
 
     deepfri_val = json.load(open(results_deepfri_validation_path, 'r'))
     deepfri_postproc_roc_auc = deepfri_val['validation']['postprocessed']['roc_auc_ma_bin_raw']
@@ -428,6 +444,8 @@ def plot_experiments(plot_tests):
         color='orange', label='DeepFRI ROC AUC', linestyles='--')
     #print(mean_dates)
     #print(mean_vals)
+    ax.plot(indexes, q1_vals, label='Q1 ROC AUC', linewidth=10, color='aquamarine')
+    ax.plot(indexes, q3_vals, label='Q3 ROC AUC', linewidth=10, color='midnightblue')
     ax.plot(indexes, mean_vals, label='Mean ROC AUC', linewidth=10, color='blue')
     dates_labels_str = [str(d).split(' ')[0] for d in dates_labels]
     ax.set_xticks(indexes, dates_labels_str, rotation=45, ha="right")

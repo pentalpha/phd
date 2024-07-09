@@ -12,27 +12,19 @@ os.environ["KERAS_BACKEND"] = "tensorflow"
 
 import numpy as np
 import keras
-from keras.models import Sequential
-from keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler, Callback
-from keras.layers import Dense, Dropout, BatchNormalization, LeakyReLU, Concatenate, Input, ReLU, MultiHeadAttention, Layer
-from keras.losses import Loss
-from keras.constraints import max_norm
+from keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
+from keras.layers import Dense, Dropout, BatchNormalization, LeakyReLU, Concatenate, Input
 from keras.optimizers import Adam
-from keras.metrics import AUC
-from keras.callbacks import CSVLogger
+from keras.utils import plot_model
 from keras import Model
-from keras.models import load_model
 from keras import backend as K
 print(keras.__version__)
 from sklearn import metrics
 from skmultilearn.model_selection import iterative_train_test_split
-from mealpy import FloatVar, PSO, GOA
-from mealpy.bio_based import SMA
-from mealpy.evolutionary_based import DE, GA
 from random import sample
 from pickle import dump, load
 
-from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, load_features_from_dir, 
+from util import (create_labels_matrix, get_items_at_indexes, load_dataset_from_dir, 
     load_labels_from_dir, config, run_command)
 from go_clustering import cluster_go_by_levels_and_freq
 from plotting import plot_experiment, plot_nodes_graph, plot_progress
@@ -171,7 +163,8 @@ def makeMultiClassifierModel(train_x, train_y, test_x, test_y, params_dict = def
     roc_auc_score = metrics.roc_auc_score(test_y, y_pred)
     acc = np.mean(keras.metrics.binary_accuracy(test_y, y_pred).numpy())
 
-    return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc)}
+    return model, {'ROC AUC': float(roc_auc_score), 'Accuracy': float(acc), 
+        'Proteins': len(train_y) + len(test_y)}
 
 def prepare_data(params, max_proteins=60000):
     basename = 'tmp/'+params['cluster_name']
@@ -311,9 +304,9 @@ class MetaheuristicTest():
             "log_file": "result.log",         # Default value = "mealpy.log"
         }'''
 
-        self.heuristic_model = RandomSearchMetaheuristic(80, 
+        self.heuristic_model = RandomSearchMetaheuristic(100, 
             PARAM_TRANSLATOR.upper_bounds, PARAM_TRANSLATOR.lower_bounds,
-            n_jobs=8)
+            n_jobs=7)
     
     def objective_func(self, solution):
         new_params_dict = PARAM_TRANSLATOR.decode(solution)
@@ -434,9 +427,13 @@ if __name__ == '__main__':
     models = {
 
     }
+    if not os.path.exists(experiment_dir):
+        os.mkdir(experiment_dir)
     for i in range(len(clusters)):
         cluster_name, cluster_gos = clusters[i]
         annot_model, stats = models_and_stats[i]
+        plot_model(annot_model, to_file = path.join(experiment_dir, cluster_name+'.model_plot.png'), 
+                   show_shapes=True, show_layer_names=True)
         
         experiment_json['classifiers'][cluster_name] = {
             'results': stats,
@@ -446,12 +443,8 @@ if __name__ == '__main__':
     
     if not os.path.exists('experiments'):
         os.mkdir('experiments')
-
     
-    if not os.path.exists(experiment_dir):
-        os.mkdir(experiment_dir)
     big_table_path = predict_with_model(models, experiment_dir)
-    
     json.dump(experiment_json, open(json_path, 'w'), indent=4)
 
     json_path_val = post_process_and_validate(json_path, big_table_path, is_test)

@@ -195,7 +195,7 @@ class RandomSearchMetaheuristic:
         #First: Mean fitness, Second: Min fitness, Third: smaller standard deviation
         solutions.sort(key = lambda tp: (round(tp[1][0], 3), round(tp[1][1], 3), -tp[1][2]))
     
-    def run_tests(self, objective_func, gens=3, top_perc = 0.5):
+    def run_tests(self, objective_func, gens=4, top_perc = 0.33):
         all_solutions = []
         report = []
 
