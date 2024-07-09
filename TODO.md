@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] Implement usage of 5-fold cross validation on base models
 - [ ] Try to increase number of taxons to 128 and 256  
 - [ ] Benchmark DeepGOPlus  
 - [ ] Benchmark SPROF-GO  
