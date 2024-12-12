@@ -14,7 +14,8 @@ Project Description
 - [ ] Test different percentiles  
 - [ ] Test collapsing layers into each other, by dividing GO ID height by 2, 3, 4...  
 - [ ] Test protein redundancy by adding proteins with no annotations to base models  
-- [ ] Test GO ID redundancy between classifiers of same layer  
+- [ ] Test GO ID redundancy between classifiers of same layer
+- [ ] Include predictor of subcellular location using the embeddings?
 
 ### In Progress
 
